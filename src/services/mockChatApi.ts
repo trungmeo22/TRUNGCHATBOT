@@ -21,6 +21,9 @@ export async function mockChatRequest(
   });
 
   const q = (request.query || '').trim().toLowerCase();
+  const historyText = (request.history || [])
+    .map((h) => h.content.toLowerCase())
+    .join(' ');
 
   // 1. Insufficient evidence trigger for testing
   if (
@@ -36,6 +39,195 @@ export async function mockChatRequest(
       query: request.query,
       answer: 'INSUFFICIENT_EVIDENCE',
       citations: [],
+      service_meta: {
+        service_version: 'REASONING_GATEWAY_V1',
+        elapsed_ms: latency,
+        llm_calls: 1,
+      },
+    };
+  }
+
+  // 2. Ivabradine Follow-up (e.g. "Thế liều bao nhiêu?") based on recent conversation history or direct query
+  if (
+    (q.includes('liều') && (q.includes('thế') || q.includes('bao nhiêu') || q.includes('dùng') || q.includes('ivabradine'))) &&
+    (historyText.includes('ivabradine') || q.includes('ivabradine'))
+  ) {
+    return {
+      version: 'REASONING_GATEWAY_V1',
+      status: 'ok',
+      query: request.query,
+      answer: `Liều dùng khuyến cáo của Ivabradine trong điều trị suy tim phân suất tống máu giảm (HFrEF):
+
+- **Liều khởi đầu**: 5 mg x 2 lần/ngày, uống trong bữa ăn. [E1]
+- **Bệnh nhân cao tuổi (≥ 75 tuổi)** hoặc có tiền sử nhạy cảm: xem xét khởi đầu liều thấp hơn 2.5 mg x 2 lần/ngày trước khi tăng liều. [E1]
+- **Điều chỉnh liều (chuẩn độ sau 2-4 tuần)** theo nhịp tim lúc nghỉ:
+  + Nếu tần số tim **> 60 lần/phút**: tăng liều lên 7.5 mg x 2 lần/ngày (liều tối đa). [E2]
+  + Nếu tần số tim **50 - 60 lần/phút**: duy trì liều 5 mg x 2 lần/ngày. [E2]
+  + Nếu tần số tim **< 50 lần/phút** hoặc có triệu chứng nhịp chậm: giảm liều xuống 2.5 mg x 2 lần/ngày (hoặc ngừng thuốc nếu đang dùng 2.5 mg). [E2]`,
+      citations: [
+        {
+          evidence_id: 'E1',
+          document_id: 'doc_vnha_hf_2022',
+          document_title: 'Khuyến cáo chẩn đoán và điều trị suy tim cấp và mạn – Hội Tim mạch học Việt Nam (VNHA) 2022',
+          page_number: 38,
+          section_id: 'sec_ivabradine_dosing',
+          breadcrumb: 'PHÁC ĐỒ VÀ LIỀU LƯỢNG IVABRADINE TRONG HFrEF',
+          source_unit_id: 'unit_vnha_hf_p38_01',
+          quote: 'Khởi đầu Ivabradine 5mg 2 lần mỗi ngày cùng bữa ăn. Với người bệnh ≥ 75 tuổi hoặc có nguy cơ rối loạn huyết động do nhịp chậm, khởi đầu với 2.5mg x 2 lần/ngày.',
+        },
+        {
+          evidence_id: 'E2',
+          document_id: 'doc_vnha_hf_2022',
+          document_title: 'Khuyến cáo chẩn đoán và điều trị suy tim cấp và mạn – Hội Tim mạch học Việt Nam (VNHA) 2022',
+          page_number: 39,
+          section_id: 'sec_ivabradine_titration',
+          breadcrumb: 'CHUẨN ĐỘ LIỀU DỰA TRÊN TẦN SỐ TIM LÚC NGHỈ',
+          source_unit_id: 'unit_vnha_hf_p39_02',
+          quote: 'Đánh giá tần số tim lúc nghỉ sau 2 - 4 tuần. Tăng liều lên tối đa 7.5mg x 2 lần/ngày nếu HR > 60 bpm. Giảm liều hoặc tạm ngừng nếu HR < 50 bpm hoặc xuất hiện triệu chứng liên quan đến nhịp chậm.',
+        },
+      ],
+      evidence: {
+        pack_version: 'PACK_CARDIO_2024_Q3',
+        retrieval_count: 4,
+        primary_count: 2,
+        supporting_count: 2,
+        source_of_truth: 'retrieved_source_text',
+        must_cite_evidence_ids: true,
+      },
+      provider: {
+        provider: 'gemini',
+        model: 'gemini-3.7-flash',
+        llm_calls: 1,
+      },
+      citation_validation: {
+        valid: true,
+        cited_ids: ['E1', 'E2'],
+      },
+      service_meta: {
+        service_version: 'REASONING_GATEWAY_V1',
+        elapsed_ms: latency,
+        llm_calls: 1,
+      },
+    };
+  }
+
+  // 3. Ivabradine Indication (e.g. "Ivabradine dùng khi nào?")
+  if (q.includes('ivabradine') || (q.includes('iva') && (q.includes('khi nào') || q.includes('chỉ định')))) {
+    return {
+      version: 'REASONING_GATEWAY_V1',
+      status: 'ok',
+      query: request.query,
+      answer: `Ivabradine (thuốc ức chế chọn lọc dòng If tại nút xoang) được chỉ định trong điều trị suy tim mạn tính theo các tiêu chí sau:
+
+1. **Phân loại suy tim**: Bệnh nhân suy tim có phân suất tống máu giảm (HFrEF với EF ≤ 35%) và còn triệu chứng (NYHA II–IV). [E1]
+2. **Nhịp tim và nhịp xoang**: Bệnh nhân đang ở **nhịp xoang** và có tần số tim lúc nghỉ **≥ 70 chu kỳ/phút**. [E1]
+3. **Phối hợp điều trị nền tảng**: Đã được điều trị tối ưu bằng liều chẹn beta giao cảm dung nạp được (hoặc chống chỉ định/không dung nạp chẹn beta) phối hợp cùng nhóm thuốc ức chế hệ RAA (ACEi/ARB/ARNI) và thuốc kháng aldosterone (MRA). [E2]`,
+      citations: [
+        {
+          evidence_id: 'E1',
+          document_id: 'doc_vnha_hf_2022',
+          document_title: 'Khuyến cáo chẩn đoán và điều trị suy tim cấp và mạn – Hội Tim mạch học Việt Nam (VNHA) 2022',
+          page_number: 37,
+          section_id: 'sec_ivabradine_ind',
+          breadcrumb: 'CHỈ ĐỊNH IVABRADINE TRONG SUY TIM PHÂN SUẤT TỐNG MÁU GIẢM',
+          source_unit_id: 'unit_vnha_hf_p37_01',
+          quote: 'Ivabradine được khuyến cáo nhằm giảm nguy cơ tái nhập viện do suy tim và tử vong tim mạch ở bệnh nhân HFrEF có triệu chứng, EF ≤ 35%, nhịp xoang với tần số tim nghỉ ≥ 70 bpm dù đã điều trị chẹn beta liều tối ưu.',
+        },
+        {
+          evidence_id: 'E2',
+          document_id: 'doc_byt_hf_2020',
+          document_title: 'Hướng dẫn chẩn đoán và điều trị suy tim mạn tính – Bộ Y tế 2020',
+          page_number: 22,
+          section_id: 'sec_byt_hf_drugs',
+          breadcrumb: 'CÁC THUỐC PHỐI HỢP TRONG PHÁC ĐỒ ĐIỀU TRỊ SUY TIM',
+          source_unit_id: 'unit_byt_hf_p22_02',
+          quote: 'Chỉ định Ivabradine phối hợp khi người bệnh không đạt mục tiêu nhịp tim dù đã dùng chẹn beta tối đa dung nạp, hoặc dùng thay thế khi có chống chỉ định tuyệt đối với chẹn beta giao cảm.',
+        },
+      ],
+      evidence: {
+        pack_version: 'PACK_CARDIO_2024_Q3',
+        retrieval_count: 4,
+        primary_count: 2,
+        supporting_count: 2,
+        source_of_truth: 'retrieved_source_text',
+        must_cite_evidence_ids: true,
+      },
+      provider: {
+        provider: 'gemini',
+        model: 'gemini-3.7-flash',
+        llm_calls: 1,
+      },
+      citation_validation: {
+        valid: true,
+        cited_ids: ['E1', 'E2'],
+      },
+      service_meta: {
+        service_version: 'REASONING_GATEWAY_V1',
+        elapsed_ms: latency,
+        llm_calls: 1,
+      },
+    };
+  }
+
+  // 4. Spironolactone in HFrEF (e.g. "Liều spironolacton trong HFrEF?" / "spironolactone")
+  if (
+    q.includes('spironolacton') ||
+    q.includes('spironolactone') ||
+    (q.includes('mra') && q.includes('hfref')) ||
+    (q.includes('kháng aldosterone') && q.includes('liều'))
+  ) {
+    return {
+      version: 'REASONING_GATEWAY_V1',
+      status: 'ok',
+      query: request.query,
+      answer: `Liều dùng của Spironolacton (thuốc kháng thụ thể Mineralocorticoid - MRA) trong điều trị suy tim phân suất tống máu giảm (HFrEF):
+
+- **Liều khởi đầu**: 25 mg x 1 lần/ngày. [E1]
+  *(Nếu eGFR từ 30 – 49 mL/phút/1.73 m² hoặc Kali huyết thanh 4.5 – 5.0 mmol/L, nên khởi đầu liều 12.5 mg/ngày hoặc 25 mg cách ngày).* [E1]
+- **Liều mục tiêu (đích)**: 50 mg x 1 lần/ngày, chuẩn độ tăng liều sau mỗi 4 – 8 tuần nếu dung nạp tốt và chức năng thận ổn định. [E1]
+- **Quy trình theo dõi an toàn bắt buộc**:
+  + Kiểm tra Kali máu và Creatinine (eGFR) tại các thời điểm: 1 tuần, 4 tuần sau khởi trị/tăng liều, sau đó định kỳ mỗi 3 – 6 tháng. [E2]
+  + Giảm liều xuống 25 mg cách ngày (hoặc 12.5 mg/ngày) nếu Kali máu tăng > 5.0 mmol/L hoặc eGFR giảm đáng kể. [E2]
+  + Tạm ngưng thuốc nếu Kali máu ≥ 5.5 mmol/L hoặc eGFR < 30 mL/phút/1.73 m². [E2]`,
+      citations: [
+        {
+          evidence_id: 'E1',
+          document_id: 'doc_vnha_hf_2022',
+          document_title: 'Khuyến cáo chẩn đoán và điều trị suy tim cấp và mạn – Hội Tim mạch học Việt Nam (VNHA) 2022',
+          page_number: 31,
+          section_id: 'sec_mra_dosing',
+          breadcrumb: 'PHÁC ĐỒ SỬ DỤNG THUỐC KHÁNG ALDOSTERONE TRONG HFrEF',
+          source_unit_id: 'unit_vnha_hf_p31_01',
+          quote: 'Spironolacton khởi đầu 25mg/ngày, tăng liều lên 50mg/ngày sau 4-8 tuần. Là 1 trong 4 nhóm thuốc nền tảng trụ cột bắt buộc trong điều trị HFrEF nhằm giảm tỷ lệ tử vong và tái nhập viện.',
+        },
+        {
+          evidence_id: 'E2',
+          document_id: 'doc_vnha_hf_2022',
+          document_title: 'Khuyến cáo chẩn đoán và điều trị suy tim cấp và mạn – Hội Tim mạch học Việt Nam (VNHA) 2022',
+          page_number: 32,
+          section_id: 'sec_mra_safety',
+          breadcrumb: 'THEO DÕI NỒNG ĐỘ KALI MÁU VÀ CHỨC NĂNG THẬN KHI DÙNG MRA',
+          source_unit_id: 'unit_vnha_hf_p32_02',
+          quote: 'Định lượng ion đồ (K+) và chức năng thận (Creatinine/eGFR) tại thời điểm 1 tuần và 4 tuần sau bắt đầu điều trị hoặc sau mỗi lần điều chỉnh liều. Tạm ngưng nếu K+ > 5.5 mmol/l.',
+        },
+      ],
+      evidence: {
+        pack_version: 'PACK_CARDIO_2024_Q3',
+        retrieval_count: 5,
+        primary_count: 2,
+        supporting_count: 3,
+        source_of_truth: 'retrieved_source_text',
+        must_cite_evidence_ids: true,
+      },
+      provider: {
+        provider: 'gemini',
+        model: 'gemini-3.7-flash',
+        llm_calls: 1,
+      },
+      citation_validation: {
+        valid: true,
+        cited_ids: ['E1', 'E2'],
+      },
       service_meta: {
         service_version: 'REASONING_GATEWAY_V1',
         elapsed_ms: latency,

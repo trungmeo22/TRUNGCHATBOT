@@ -38,6 +38,7 @@ export async function sendChatQuery(
       },
       body: JSON.stringify({
         query: request.query,
+        ...(request.history && request.history.length > 0 ? { history: request.history } : {}),
         top_k: request.top_k ?? 6,
         context_radius: request.context_radius ?? 1,
         max_context_chars: request.max_context_chars ?? 16000,

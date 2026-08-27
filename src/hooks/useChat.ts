@@ -1,9 +1,11 @@
 import { useState, useRef, useCallback } from 'react';
-import type { ChatMessage, Citation } from '../types/chat';
+import type { ChatMessage, Citation, Conversation } from '../types/chat';
 import { sendChatQuery, ChatApiError } from '../services/chatApi';
+import { buildRecentHistory } from '../utils/history';
 
 export interface UseChatProps {
   activeConversationId: string | null;
+  activeConversation: Conversation | null;
   createNewConversation: () => string;
   addMessageToConversation: (conversationId: string, message: ChatMessage) => void;
   updateLastMessageInConversation: (
@@ -14,6 +16,7 @@ export interface UseChatProps {
 
 export function useChat({
   activeConversationId,
+  activeConversation,
   createNewConversation,
   addMessageToConversation,
   updateLastMessageInConversation,
@@ -53,6 +56,19 @@ export function useChat({
         convId = createNewConversation();
       }
 
+      // Calculate recent history from prior messages in active conversation
+      const currentMessages =
+        activeConversation && activeConversation.id === convId
+          ? activeConversation.messages
+          : [];
+
+      // If retrying, slice before the failed turn; otherwise take all current messages
+      const messagesForHistory = retryConversationId
+        ? currentMessages.filter((m) => m.status !== 'error')
+        : currentMessages;
+
+      const history = buildRecentHistory(messagesForHistory, 10, 20000);
+
       // Add user message if not retrying an existing query directly
       if (!retryConversationId) {
         const userMsg: ChatMessage = {
@@ -76,6 +92,7 @@ export function useChat({
         const response = await sendChatQuery(
           {
             query: trimmedQuery,
+            history: history.length > 0 ? history : undefined,
             top_k: 6,
             context_radius: 1,
             max_context_chars: 16000,
@@ -134,7 +151,7 @@ export function useChat({
         abortControllerRef.current = null;
       }
     },
-    [activeConversationId, createNewConversation, addMessageToConversation, isLoading]
+    [activeConversationId, activeConversation, createNewConversation, addMessageToConversation, isLoading]
   );
 
   const retryLastMessage = useCallback(

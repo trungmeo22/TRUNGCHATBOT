@@ -1,7 +1,13 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 
+interface HistoryItem {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 interface ChatRequestBody {
   query?: unknown;
+  history?: unknown;
   top_k?: unknown;
   context_radius?: unknown;
   max_context_chars?: unknown;
@@ -9,6 +15,7 @@ interface ChatRequestBody {
 
 interface SanitizedChatPayload {
   query: string;
+  history?: HistoryItem[];
   top_k: number;
   context_radius: number;
   max_context_chars: number;
@@ -131,7 +138,7 @@ export default async function handler(
     return;
   }
 
-  const { query, top_k, context_radius, max_context_chars } = rawBody;
+  const { query, history, top_k, context_radius, max_context_chars } = rawBody;
 
   // Validate query: required, string, trim, length 2..2000
   if (typeof query !== 'string') {
@@ -149,6 +156,85 @@ export default async function handler(
       message: 'Query length must be between 2 and 2000 characters.',
     });
     return;
+  }
+
+  // Validate history: optional, array, max 12 items, each role "user"|"assistant", content string 1..6000 chars, total <= 20000 chars
+  let validatedHistory: HistoryItem[] | undefined = undefined;
+  if (history !== undefined && history !== null) {
+    if (!Array.isArray(history)) {
+      sendJsonResponse(res, 400, {
+        error: 'INVALID_HISTORY',
+        message: 'Field "history" must be an array.',
+      });
+      return;
+    }
+
+    if (history.length > 12) {
+      sendJsonResponse(res, 400, {
+        error: 'INVALID_HISTORY_LENGTH',
+        message: 'Field "history" must not contain more than 12 items.',
+      });
+      return;
+    }
+
+    let totalHistoryChars = 0;
+    const sanitizedHistory: HistoryItem[] = [];
+
+    for (let i = 0; i < history.length; i++) {
+      const item = history[i];
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        sendJsonResponse(res, 400, {
+          error: 'INVALID_HISTORY_ITEM',
+          message: `History item at index ${i} must be an object.`,
+        });
+        return;
+      }
+
+      const { role, content } = item as { role?: unknown; content?: unknown };
+
+      if (role !== 'user' && role !== 'assistant') {
+        sendJsonResponse(res, 400, {
+          error: 'INVALID_HISTORY_ROLE',
+          message: `History item at index ${i} role must be "user" or "assistant".`,
+        });
+        return;
+      }
+
+      if (typeof content !== 'string') {
+        sendJsonResponse(res, 400, {
+          error: 'INVALID_HISTORY_CONTENT',
+          message: `History item at index ${i} content must be a string.`,
+        });
+        return;
+      }
+
+      const trimmedContent = content.trim();
+      if (trimmedContent.length < 1 || trimmedContent.length > 6000) {
+        sendJsonResponse(res, 400, {
+          error: 'INVALID_HISTORY_CONTENT_LENGTH',
+          message: `History item at index ${i} content length must be between 1 and 6000 characters.`,
+        });
+        return;
+      }
+
+      totalHistoryChars += trimmedContent.length;
+      sanitizedHistory.push({
+        role,
+        content: trimmedContent,
+      });
+    }
+
+    if (totalHistoryChars > 20000) {
+      sendJsonResponse(res, 400, {
+        error: 'INVALID_HISTORY_TOTAL_CHARS',
+        message: 'Total characters across all history items must not exceed 20,000 characters.',
+      });
+      return;
+    }
+
+    if (sanitizedHistory.length > 0) {
+      validatedHistory = sanitizedHistory;
+    }
   }
 
   // Validate top_k: integer 1..8, default 6
@@ -203,6 +289,7 @@ export default async function handler(
   // Sanitized payload - strictly omit unexpected or foreign fields
   const upstreamPayload: SanitizedChatPayload = {
     query: trimmedQuery,
+    ...(validatedHistory ? { history: validatedHistory } : {}),
     top_k: validatedTopK,
     context_radius: validatedContextRadius,
     max_context_chars: validatedMaxContextChars,

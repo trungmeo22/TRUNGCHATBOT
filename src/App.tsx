@@ -35,6 +35,7 @@ export default function App() {
     retryLastMessage,
   } = useChat({
     activeConversationId,
+    activeConversation,
     createNewConversation,
     addMessageToConversation,
     updateLastMessageInConversation,

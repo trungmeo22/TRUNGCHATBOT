@@ -2,25 +2,29 @@ import React from 'react';
 import { Menu, Plus, ShieldCheck } from 'lucide-react';
 
 interface MobileHeaderProps {
+  isVisible?: boolean;
   onOpenSidebar: () => void;
   onNewChat: () => void;
 }
 
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
+  isVisible = true,
   onOpenSidebar,
   onNewChat,
 }) => {
   return (
     <header
       id="mobile-header"
-      className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shrink-0 z-20"
+      className={`md:hidden fixed top-0 inset-x-0 z-30 flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-xs transition-all duration-300 ease-out ${
+        isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
+      }`}
     >
       <div className="flex items-center gap-2.5">
         <button
           type="button"
           id="mobile-hamburger-btn"
           onClick={onOpenSidebar}
-          className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors"
           aria-label="Mở danh mục cuộc trò chuyện"
         >
           <Menu className="w-5 h-5" />
@@ -40,9 +44,9 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         type="button"
         id="mobile-new-chat-btn"
         onClick={onNewChat}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-gray-800 text-xs font-semibold shadow-2xs hover:bg-gray-100"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer active:scale-95"
       >
-        <Plus className="w-3.5 h-3.5 text-gray-700" />
+        <Plus className="w-3.5 h-3.5 text-blue-600" />
         <span>Mới</span>
       </button>
     </header>

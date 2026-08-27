@@ -46,6 +46,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onRetryLast,
 }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [toastMessage, setToastMessage] = useState('');
   const [isToastVisible, setIsToastVisible] = useState(false);
 
@@ -55,6 +56,16 @@ export const AppShell: React.FC<AppShellProps> = ({
     setTimeout(() => {
       setIsToastVisible(false);
     }, 2200);
+  };
+
+  const handleNewChat = () => {
+    setIsHeaderVisible(true);
+    onNewConversation();
+  };
+
+  const handleSelectConv = (id: string) => {
+    setIsHeaderVisible(true);
+    onSelectConversation(id);
   };
 
   const currentMessages: ChatMessage[] = activeConversation?.messages || [];
@@ -77,8 +88,8 @@ export const AppShell: React.FC<AppShellProps> = ({
         <Sidebar
           conversations={conversations}
           activeConversationId={activeConversationId}
-          onSelectConversation={onSelectConversation}
-          onNewConversation={onNewConversation}
+          onSelectConversation={handleSelectConv}
+          onNewConversation={handleNewChat}
           onRenameConversation={onRenameConversation}
           onDeleteConversation={onDeleteConversation}
         />
@@ -104,8 +115,14 @@ export const AppShell: React.FC<AppShellProps> = ({
             <Sidebar
               conversations={conversations}
               activeConversationId={activeConversationId}
-              onSelectConversation={onSelectConversation}
-              onNewConversation={onNewConversation}
+              onSelectConversation={(id) => {
+                handleSelectConv(id);
+                setIsMobileSidebarOpen(false);
+              }}
+              onNewConversation={() => {
+                handleNewChat();
+                setIsMobileSidebarOpen(false);
+              }}
               onRenameConversation={onRenameConversation}
               onDeleteConversation={onDeleteConversation}
               onCloseMobile={() => setIsMobileSidebarOpen(false)}
@@ -116,10 +133,11 @@ export const AppShell: React.FC<AppShellProps> = ({
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
-        {/* Mobile Header */}
+        {/* Mobile Header with smooth dynamic reveal */}
         <MobileHeader
+          isVisible={isHeaderVisible}
           onOpenSidebar={() => setIsMobileSidebarOpen(true)}
-          onNewChat={onNewConversation}
+          onNewChat={handleNewChat}
         />
 
         {/* Chat Area with centered max-width */}
@@ -128,11 +146,15 @@ export const AppShell: React.FC<AppShellProps> = ({
             messages={currentMessages}
             isLoading={isLoading}
             loadingText={loadingText}
-            onSendMessage={onSendMessage}
+            onSendMessage={(q) => {
+              setIsHeaderVisible(true);
+              onSendMessage(q);
+            }}
             onStop={onStop}
             onSelectCitation={onSelectCitation}
             onCopyText={() => showToast('Đã sao chép vào bộ nhớ tạm')}
             onRetryLast={handleRetry}
+            onHeaderVisibilityChange={setIsHeaderVisible}
           />
         </main>
 

@@ -13,6 +13,7 @@ interface ChatViewProps {
   onSelectCitation: (citation: Citation) => void;
   onCopyText: (text: string) => void;
   onRetryLast: () => void;
+  onHeaderVisibilityChange?: (isVisible: boolean) => void;
 }
 
 export const ChatView: React.FC<ChatViewProps> = ({
@@ -24,6 +25,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   onSelectCitation,
   onCopyText,
   onRetryLast,
+  onHeaderVisibilityChange,
 }) => {
   const [composerValue, setComposerValue] = useState('');
 
@@ -46,9 +48,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
           onSelectCitation={onSelectCitation}
           onCopyText={onCopyText}
           onRetryLast={onRetryLast}
+          onHeaderVisibilityChange={onHeaderVisibilityChange}
         />
       ) : (
-        <div className="flex-1 overflow-y-auto flex items-center justify-center">
+        <div className="flex-1 overflow-y-auto flex items-center justify-center pt-12 md:pt-0">
           <EmptyState onSelectSuggestion={handleSelectSuggestion} />
         </div>
       )}

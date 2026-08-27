@@ -13,8 +13,17 @@ export interface Citation {
   url?: string;
 }
 
+export interface HistoryMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface ChatRequest {
   query: string;
+  history?: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }>;
   top_k?: number;
   context_radius?: number;
   max_context_chars?: number;
@@ -33,6 +42,13 @@ export interface ChatResponse {
     supporting_count?: number;
     source_of_truth?: string;
     must_cite_evidence_ids?: boolean;
+    [key: string]: unknown;
+  };
+  query_intelligence?: {
+    resolved_query?: string;
+    original_query?: string;
+    intent?: string;
+    normalized_entities?: string[];
     [key: string]: unknown;
   };
   provider?: {
