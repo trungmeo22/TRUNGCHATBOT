@@ -57,7 +57,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       )}
 
       {/* Bottom Input Composer with subtle gradient backdrop */}
-      <div className="bg-gradient-to-t from-[#F9FAFB] via-[#F9FAFB] to-transparent pt-3 pb-2">
+      <div className="shrink-0 bg-gradient-to-t from-[#F9FAFB] via-[#F9FAFB] to-transparent pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <ChatComposer
           isLoading={isLoading}
           onSendMessage={onSendMessage}

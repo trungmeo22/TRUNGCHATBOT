@@ -68,7 +68,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   return (
     <div
       id="chat-composer-container"
-      className="w-full max-w-[720px] mx-auto px-4 pb-4 pt-1"
+      className="w-full max-w-[720px] mx-auto px-3 sm:px-4 pb-1 pt-0.5"
     >
       <div className="relative flex items-end rounded-2xl bg-white border border-gray-200 shadow-lg ring-1 ring-black/[0.02] focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all p-1.5 sm:p-2">
         <textarea

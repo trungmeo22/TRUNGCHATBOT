@@ -82,7 +82,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   return (
-    <div id="app-shell-root" className="flex h-screen w-full overflow-hidden bg-[#F9FAFB] font-sans antialiased text-gray-900">
+    <div id="app-shell-root" className="fixed inset-0 flex h-[100dvh] w-full overflow-hidden bg-[#F9FAFB] font-sans antialiased text-gray-900">
       {/* Desktop Sidebar (Permanent, ~260px) */}
       <div className="hidden md:flex shrink-0 h-full">
         <Sidebar
