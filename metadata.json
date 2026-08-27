@@ -1,0 +1,6 @@
+{
+  "name": "Tra cứu Y khoa",
+  "description": "Giao diện hỏi đáp trên kho tài liệu y khoa có kiểm soát nguồn và đối chiếu bằng chứng khoa học.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
