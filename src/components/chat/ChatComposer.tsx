@@ -1,11 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowUp, Square } from 'lucide-react';
+import { SourcePolicySelector } from './SourcePolicySelector';
+import type { SourcePolicy } from '../../types/chat';
 
 interface ChatComposerProps {
   isLoading: boolean;
   onSendMessage: (query: string) => void;
   onStop: () => void;
   initialValue?: string;
+  sourcePolicy?: SourcePolicy;
+  onPolicyChange?: (newPolicy: SourcePolicy) => void;
 }
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
@@ -13,6 +17,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   onSendMessage,
   onStop,
   initialValue = '',
+  sourcePolicy,
+  onPolicyChange,
 }) => {
   const [input, setInput] = useState(initialValue);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -70,6 +76,17 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       id="chat-composer-container"
       className="w-full max-w-[720px] mx-auto px-3 sm:px-4 pb-1 pt-0.5"
     >
+      {/* Top action bar with Source Policy Selector */}
+      {onPolicyChange && (
+        <div className="flex items-center justify-between px-1 mb-1.5">
+          <SourcePolicySelector
+            currentPolicy={sourcePolicy}
+            onPolicyChange={onPolicyChange}
+            disabled={isLoading}
+          />
+        </div>
+      )}
+
       <div className="relative flex items-end rounded-2xl bg-white border border-gray-200 shadow-lg ring-1 ring-black/[0.02] focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all p-1.5 sm:p-2">
         <textarea
           ref={textareaRef}
@@ -115,10 +132,6 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           )}
         </div>
       </div>
-
-      <p className="text-[10px] text-center text-gray-400 mt-2">
-        Câu trả lời được tổng hợp từ các tài liệu đã được lập chỉ mục và kèm nguồn để kiểm chứng.
-      </p>
     </div>
   );
 };

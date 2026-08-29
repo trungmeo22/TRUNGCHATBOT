@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import type { Conversation, ChatMessage, Citation } from '../../types/chat';
+import type { Conversation, ChatMessage, Citation, SourcePolicy } from '../../types/chat';
 import { Sidebar } from './Sidebar';
 import { MobileHeader } from './MobileHeader';
 import { ChatView } from '../chat/ChatView';
 import { SourceDrawer } from '../citations/SourceDrawer';
 import { Toast } from '../ui/Toast';
+import { PanelLeftOpen } from 'lucide-react';
 
 interface AppShellProps {
   conversations: Conversation[];
@@ -19,6 +20,7 @@ interface AppShellProps {
   onNewConversation: () => void;
   onRenameConversation: (id: string, newTitle: string) => void;
   onDeleteConversation: (id: string) => void;
+  onUpdateSourcePolicy: (conversationId: string, policy: SourcePolicy) => void;
   onSendMessage: (query: string) => void;
   onStop: () => void;
   onSelectCitation: (citation: Citation) => void;
@@ -39,6 +41,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onNewConversation,
   onRenameConversation,
   onDeleteConversation,
+  onUpdateSourcePolicy,
   onSendMessage,
   onStop,
   onSelectCitation,
@@ -46,6 +49,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onRetryLast,
 }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [toastMessage, setToastMessage] = useState('');
   const [isToastVisible, setIsToastVisible] = useState(false);
@@ -69,6 +73,14 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   const currentMessages: ChatMessage[] = activeConversation?.messages || [];
+  const currentSourcePolicy = activeConversation?.sourcePolicy;
+
+  const handlePolicyChange = (newPolicy: SourcePolicy) => {
+    if (activeConversationId) {
+      onUpdateSourcePolicy(activeConversationId, newPolicy);
+      showToast('Đã cập nhật phạm vi nguồn tài liệu');
+    }
+  };
 
   const handleRetry = () => {
     if (lastFailedQuery) {
@@ -83,17 +95,20 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   return (
     <div id="app-shell-root" className="fixed inset-0 flex h-[100dvh] w-full overflow-hidden bg-[#F9FAFB] font-sans antialiased text-gray-900">
-      {/* Desktop Sidebar (Permanent, ~260px) */}
-      <div className="hidden md:flex shrink-0 h-full">
-        <Sidebar
-          conversations={conversations}
-          activeConversationId={activeConversationId}
-          onSelectConversation={handleSelectConv}
-          onNewConversation={handleNewChat}
-          onRenameConversation={onRenameConversation}
-          onDeleteConversation={onDeleteConversation}
-        />
-      </div>
+      {/* Desktop Sidebar (~260px, collapsible) */}
+      {isDesktopSidebarOpen && (
+        <div className="hidden md:flex shrink-0 h-full animate-in slide-in-from-left-2 duration-200">
+          <Sidebar
+            conversations={conversations}
+            activeConversationId={activeConversationId}
+            onSelectConversation={handleSelectConv}
+            onNewConversation={handleNewChat}
+            onRenameConversation={onRenameConversation}
+            onDeleteConversation={onDeleteConversation}
+            onClose={() => setIsDesktopSidebarOpen(false)}
+          />
+        </div>
+      )}
 
       {/* Mobile Drawer Backdrop & Sidebar */}
       {isMobileSidebarOpen && (
@@ -133,6 +148,22 @@ export const AppShell: React.FC<AppShellProps> = ({
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
+        {/* Desktop floating reopen sidebar button when hidden */}
+        {!isDesktopSidebarOpen && (
+          <div className="hidden md:block absolute top-3 left-3 z-30 animate-in fade-in duration-200">
+            <button
+              type="button"
+              id="desktop-reopen-sidebar-btn"
+              onClick={() => setIsDesktopSidebarOpen(true)}
+              className="p-2 rounded-lg bg-white border border-gray-200 shadow-xs hover:bg-gray-50 text-gray-600 hover:text-gray-900 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium"
+              title="Mở thanh điều hướng"
+            >
+              <PanelLeftOpen className="w-4 h-4 text-gray-700" />
+              <span>Hiện danh mục</span>
+            </button>
+          </div>
+        )}
+
         {/* Mobile Header with smooth dynamic reveal */}
         <MobileHeader
           isVisible={isHeaderVisible}
@@ -146,6 +177,8 @@ export const AppShell: React.FC<AppShellProps> = ({
             messages={currentMessages}
             isLoading={isLoading}
             loadingText={loadingText}
+            sourcePolicy={currentSourcePolicy}
+            onPolicyChange={handlePolicyChange}
             onSendMessage={(q) => {
               setIsHeaderVisible(true);
               onSendMessage(q);

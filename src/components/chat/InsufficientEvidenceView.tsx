@@ -1,12 +1,14 @@
 import React from 'react';
-import { HelpCircle, Sparkles, BookOpen } from 'lucide-react';
+import { HelpCircle, Sparkles, BookOpen, Layers } from 'lucide-react';
 
 interface InsufficientEvidenceViewProps {
   onSuggestionClick?: (suggestion: string) => void;
+  isScopedToSingleSource?: boolean;
 }
 
 export const InsufficientEvidenceView: React.FC<InsufficientEvidenceViewProps> = ({
   onSuggestionClick,
+  isScopedToSingleSource = false,
 }) => {
   return (
     <div
@@ -20,14 +22,14 @@ export const InsufficientEvidenceView: React.FC<InsufficientEvidenceViewProps> =
       <div className="flex-1 space-y-2.5">
         <div>
           <h3 className="text-sm font-bold text-amber-900 tracking-tight">
-            Chưa đủ bằng chứng trong kho tài liệu
+            Chưa đủ bằng chứng trong kho tài liệu hiện tại
           </h3>
           <p className="text-xs sm:text-sm text-amber-900/90 leading-relaxed mt-1">
-            Tôi chưa tìm thấy đủ thông tin trong các tài liệu hiện có để đưa ra câu trả lời đáng tin cậy cho câu hỏi này.
+            Tài liệu trong phạm vi nguồn hiện chọn chưa đủ để trả lời câu hỏi này một cách đáng tin cậy và chính xác.
           </p>
         </div>
 
-        <div className="pt-1.5 space-y-1.5 border-t border-amber-200/60">
+        <div className="pt-2 space-y-2 border-t border-amber-200/60">
           <div className="text-[11px] font-semibold text-amber-800 uppercase tracking-wider">
             Gợi ý tra cứu:
           </div>
@@ -37,8 +39,8 @@ export const InsufficientEvidenceView: React.FC<InsufficientEvidenceViewProps> =
               Thử diễn đạt câu hỏi cụ thể hơn theo danh pháp y khoa
             </span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-amber-200/90 text-amber-900 text-xs font-medium shadow-2xs">
-              <BookOpen className="w-3 h-3 text-amber-600" />
-              Kiểm tra lại phạm vi tài liệu hiện có (Bộ Y tế / Hiệp hội)
+              <Layers className="w-3 h-3 text-amber-600" />
+              Bạn có thể thử mở rộng phạm vi nguồn tài liệu (Tất cả nguồn)
             </span>
           </div>
         </div>

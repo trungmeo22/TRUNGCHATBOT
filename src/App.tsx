@@ -19,7 +19,9 @@ export default function App() {
     renameConversation,
     deleteConversation,
     addMessageToConversation,
+    updateMessageInConversation,
     updateLastMessageInConversation,
+    updateConversationSourcePolicy,
   } = useConversations();
 
   const {
@@ -38,6 +40,7 @@ export default function App() {
     activeConversation,
     createNewConversation,
     addMessageToConversation,
+    updateMessageInConversation,
     updateLastMessageInConversation,
   });
 
@@ -55,6 +58,7 @@ export default function App() {
       onNewConversation={clearActiveConversation}
       onRenameConversation={renameConversation}
       onDeleteConversation={deleteConversation}
+      onUpdateSourcePolicy={updateConversationSourcePolicy}
       onSendMessage={sendMessage}
       onStop={stopGeneration}
       onSelectCitation={openCitationDrawer}
@@ -63,4 +67,3 @@ export default function App() {
     />
   );
 }
-

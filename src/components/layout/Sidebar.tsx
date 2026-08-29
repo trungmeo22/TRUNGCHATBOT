@@ -10,6 +10,7 @@ import {
   Trash2,
   Check,
   X,
+  PanelLeftClose,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -19,6 +20,7 @@ interface SidebarProps {
   onNewConversation: () => void;
   onRenameConversation: (id: string, newTitle: string) => void;
   onDeleteConversation: (id: string) => void;
+  onClose?: () => void;
   onCloseMobile?: () => void;
 }
 
@@ -29,6 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNewConversation,
   onRenameConversation,
   onDeleteConversation,
+  onClose,
   onCloseMobile,
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -98,23 +101,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       id="app-sidebar"
-      className="w-[260px] h-full bg-white border-r border-gray-200 flex flex-col justify-between select-none"
+      className="w-full md:w-[260px] h-full bg-white flex flex-col justify-between select-none"
     >
       {/* Brand & New Chat Button */}
-      <div className="p-5 space-y-4">
-        {/* Brand */}
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white shadow-2xs">
+      <div className="p-4 sm:p-5 space-y-4">
+        {/* Brand & Close/Collapse button */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 shrink-0 bg-blue-600 rounded flex items-center justify-center text-white shadow-2xs">
               <ShieldCheck className="w-4 h-4" />
             </div>
-            <h1 className="font-bold text-base tracking-tight text-gray-900">
-              Tra cứu Y khoa
-            </h1>
+            <div className="min-w-0">
+              <h1 className="font-bold text-base tracking-tight text-gray-900 truncate">
+                Tra cứu Y khoa
+              </h1>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold truncate">
+                Evidence-grounded medical
+              </p>
+            </div>
           </div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold">
-            Evidence-grounded medical
-          </p>
+
+          {/* Hide/Collapse Navigation Button */}
+          {(onClose || onCloseMobile) && (
+            <button
+              type="button"
+              id="hide-navigation-btn"
+              onClick={() => {
+                if (onClose) onClose();
+                if (onCloseMobile) onCloseMobile();
+              }}
+              className="p-1.5 -mr-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+              title="Ẩn thanh điều hướng"
+              aria-label="Ẩn thanh điều hướng"
+            >
+              <PanelLeftClose className="w-4 h-4 hidden md:block" />
+              <X className="w-4 h-4 md:hidden" />
+            </button>
+          )}
         </div>
 
         {/* New Conversation Button */}
@@ -263,13 +286,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Bottom Status: Knowledge Engine Indicator */}
       <div className="p-4 border-t border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+          <div
+            className={`w-2 h-2 rounded-full ${
+              engineStatus === 'ready'
+                ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                : engineStatus === 'mock'
+                ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+                : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'
+            }`}
+          />
           <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
             Knowledge Engine
           </span>
         </div>
-        <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-          Sẵn sàng
+        <span
+          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+            engineStatus === 'ready'
+              ? 'text-emerald-600 bg-emerald-50'
+              : engineStatus === 'mock'
+              ? 'text-amber-600 bg-amber-50'
+              : 'text-red-600 bg-red-50'
+          }`}
+        >
+          {engineStatus === 'ready' ? 'Sẵn sàng' : engineStatus === 'mock' ? 'Mock' : 'Chưa kết nối'}
         </span>
       </div>
     </aside>

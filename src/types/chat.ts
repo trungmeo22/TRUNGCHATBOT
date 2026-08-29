@@ -1,94 +1,116 @@
+export type SourceGroup = 'BYT' | 'VN_ASSOC' | 'INTL_TOP_ASSOC';
+
+export interface SourcePolicy {
+  scope: 'all';
+  groups: SourceGroup[];
+  [key: string]: unknown;
+}
+
 export interface Citation {
   evidence_id: string; // e.g. "E1", "E2"
   document_id?: string;
-  document_title: string;
+  document_title?: string;
+
+  organization?: string;
+  publication_year?: number;
+  document_type?: string;
+
+  source_group?: string;
+  source_category?: string;
+  source_category_name?: string;
+  source_geographic_scope?: string;
+
   page_number?: number | string;
   section_id?: string;
   breadcrumb?: string;
   source_unit_id?: string;
-  // Optional evidence texts for future/extended responses
+
   quote?: string;
   source_text?: string;
   evidence_text?: string;
   url?: string;
+
+  [key: string]: unknown;
 }
 
 export interface HistoryMessage {
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
 }
 
 export interface ChatRequest {
   query: string;
-  history?: Array<{
-    role: "user" | "assistant";
-    content: string;
-  }>;
+  conversation_id?: string;
+  source_policy?: SourcePolicy;
   top_k?: number;
   context_radius?: number;
   max_context_chars?: number;
+  history?: HistoryMessage[];
 }
 
 export interface ChatResponse {
-  version?: string;
-  status: "ok" | "insufficient_evidence" | "error" | string;
-  query?: string;
+  status: string;
   answer: string;
   citations?: Citation[];
-  evidence?: {
-    pack_version?: string;
-    retrieval_count?: number;
-    primary_count?: number;
-    supporting_count?: number;
-    source_of_truth?: string;
-    must_cite_evidence_ids?: boolean;
+
+  conversation?: {
+    conversation_id?: string;
+    memory_version?: string;
+    persistent_memory?: boolean;
+    memory_existed?: boolean;
+    source_policy_origin?: string;
+    recent_turns_loaded?: number;
+    older_turns_loaded?: number;
+    rolling_summary_used?: boolean;
+    pinned_fact_count?: number;
+    history_turns_used?: number;
+    retrieval_context_used?: boolean;
+    retrieval_resolution_mode?: string;
+    retrieval_intent?: string | null;
+    retrieval_intent_origin?: string;
     [key: string]: unknown;
   };
-  query_intelligence?: {
-    resolved_query?: string;
-    original_query?: string;
-    intent?: string;
-    normalized_entities?: string[];
+
+  source_policy?: {
+    scope?: string;
+    groups?: string[];
+    origin?: string;
+    coverage_warning?: string | null;
     [key: string]: unknown;
   };
-  provider?: {
-    provider?: string;
-    model?: string;
-    llm_calls?: number;
-    usage?: Record<string, unknown>;
-    [key: string]: unknown;
-  };
-  citation_validation?: {
-    valid?: boolean;
-    cited_ids?: string[];
-    [key: string]: unknown;
-  };
+
   grounding_validation?: {
-    version?: string;
     valid?: boolean;
     claim_count?: number;
-    validated_claims?: unknown[];
     [key: string]: unknown;
   };
-  service_meta?: {
-    service_version?: string;
-    elapsed_ms?: number;
-    llm_calls?: number;
+
+  v2?: {
+    version?: string;
+    grounding_gate?: string;
+    evidence_selector?: string;
+    retrieval_strategy?: string;
     [key: string]: unknown;
   };
+
+  telemetry?: Record<string, unknown>;
+
+  [key: string]: unknown;
 }
 
 export interface ChatMessage {
   id: string;
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
   createdAt: number;
   citations?: Citation[];
-  status?: "ok" | "insufficient_evidence" | "error";
+  status?: 'ok' | 'insufficient_evidence' | 'error';
+  isStreaming?: boolean;
   errorDetails?: {
     code?: number | string;
     message: string;
   };
+  sourcePolicyUsed?: SourcePolicy;
 }
 
 export interface Conversation {
@@ -97,4 +119,5 @@ export interface Conversation {
   createdAt: number;
   updatedAt: number;
   messages: ChatMessage[];
+  sourcePolicy?: SourcePolicy;
 }

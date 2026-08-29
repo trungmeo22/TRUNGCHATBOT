@@ -1,10 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Conversation, ChatMessage } from '../types/chat';
+import type { Conversation, ChatMessage, SourcePolicy } from '../types/chat';
 import { loadConversations, saveConversations, generateId } from '../utils/storage';
+import { DEFAULT_SOURCE_POLICY } from '../utils/sourcePolicy';
+import { deleteBackendConversation } from '../services/chatApi';
 
 export function useConversations() {
   const [conversations, setConversations] = useState<Conversation[]>(() => {
-    return loadConversations();
+    const loaded = loadConversations();
+    // Ensure all loaded conversations have a valid sourcePolicy
+    return loaded.map((c) => ({
+      ...c,
+      sourcePolicy: c.sourcePolicy || DEFAULT_SOURCE_POLICY,
+    }));
   });
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
@@ -15,7 +22,7 @@ export function useConversations() {
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
 
-  const createNewConversation = useCallback((): string => {
+  const createNewConversation = useCallback((customPolicy?: SourcePolicy): string => {
     const newId = generateId();
     const newConv: Conversation = {
       id: newId,
@@ -23,6 +30,7 @@ export function useConversations() {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       messages: [],
+      sourcePolicy: customPolicy || DEFAULT_SOURCE_POLICY,
     };
 
     setConversations((prev) => [newConv, ...prev]);
@@ -56,12 +64,34 @@ export function useConversations() {
 
   const deleteConversation = useCallback(
     (id: string) => {
+      // 1. Remove from frontend state and localStorage
       setConversations((prev) => prev.filter((c) => c.id !== id));
       if (activeConversationId === id) {
         setActiveConversationId(null);
       }
+      // 2. Call backend DELETE endpoint asynchronously
+      deleteBackendConversation(id).catch((err) => {
+        console.warn(`[useConversations] Backend deletion failed for ${id}:`, err);
+      });
     },
     [activeConversationId]
+  );
+
+  const updateConversationSourcePolicy = useCallback(
+    (conversationId: string, policy: SourcePolicy) => {
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                sourcePolicy: policy,
+                updatedAt: Date.now(),
+              }
+            : c
+        )
+      );
+    },
+    []
   );
 
   const addMessageToConversation = useCallback(
@@ -77,14 +107,40 @@ export function useConversations() {
             (conv.title === 'Cuộc trò chuyện mới' || conv.messages.length === 0) &&
             message.role === 'user'
           ) {
-            title = message.content.length > 42
-              ? message.content.substring(0, 42).trim() + '...'
-              : message.content.trim();
+            title =
+              message.content.length > 42
+                ? message.content.substring(0, 42).trim() + '...'
+                : message.content.trim();
           }
 
           return {
             ...conv,
             title,
+            updatedAt: Date.now(),
+            messages: updatedMessages,
+          };
+        });
+      });
+    },
+    []
+  );
+
+  const updateMessageInConversation = useCallback(
+    (
+      conversationId: string,
+      messageId: string,
+      updater: (msg: ChatMessage) => ChatMessage
+    ) => {
+      setConversations((prev) => {
+        return prev.map((conv) => {
+          if (conv.id !== conversationId) return conv;
+
+          const updatedMessages = conv.messages.map((m) =>
+            m.id === messageId ? updater(m) : m
+          );
+
+          return {
+            ...conv,
             updatedAt: Date.now(),
             messages: updatedMessages,
           };
@@ -125,7 +181,9 @@ export function useConversations() {
     renameConversation,
     deleteConversation,
     addMessageToConversation,
+    updateMessageInConversation,
     updateLastMessageInConversation,
+    updateConversationSourcePolicy,
     setActiveConversationId,
   };
 }

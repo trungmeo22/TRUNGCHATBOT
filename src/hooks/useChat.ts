@@ -1,13 +1,18 @@
 import { useState, useRef, useCallback } from 'react';
-import type { ChatMessage, Citation, Conversation } from '../types/chat';
-import { sendChatQuery, ChatApiError } from '../services/chatApi';
-import { buildRecentHistory } from '../utils/history';
+import type { ChatMessage, Citation, Conversation, SourcePolicy } from '../types/chat';
+import { sendChatQueryStream, ChatApiError } from '../services/chatApi';
+import { DEFAULT_SOURCE_POLICY } from '../utils/sourcePolicy';
 
 export interface UseChatProps {
   activeConversationId: string | null;
   activeConversation: Conversation | null;
-  createNewConversation: () => string;
+  createNewConversation: (customPolicy?: SourcePolicy) => string;
   addMessageToConversation: (conversationId: string, message: ChatMessage) => void;
+  updateMessageInConversation: (
+    conversationId: string,
+    messageId: string,
+    updater: (msg: ChatMessage) => ChatMessage
+  ) => void;
   updateLastMessageInConversation: (
     conversationId: string,
     updater: (lastMessage: ChatMessage) => ChatMessage
@@ -19,10 +24,11 @@ export function useChat({
   activeConversation,
   createNewConversation,
   addMessageToConversation,
+  updateMessageInConversation,
   updateLastMessageInConversation,
 }: UseChatProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingText, setLoadingText] = useState('Đang tra cứu và tổng hợp từ tài liệu...');
+  const [loadingText, setLoadingText] = useState('Đang đối chiếu tài liệu và phác đồ...');
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
   const [isSourceDrawerOpen, setIsSourceDrawerOpen] = useState(false);
   const [lastFailedQuery, setLastFailedQuery] = useState<string | null>(null);
@@ -56,23 +62,15 @@ export function useChat({
         convId = createNewConversation();
       }
 
-      // Calculate recent history from prior messages in active conversation
-      const currentMessages =
-        activeConversation && activeConversation.id === convId
-          ? activeConversation.messages
-          : [];
+      // Read current conversation's source policy to avoid leakage across conversations
+      const currentPolicy =
+        (activeConversation && activeConversation.id === convId && activeConversation.sourcePolicy) ||
+        DEFAULT_SOURCE_POLICY;
 
-      // If retrying, slice before the failed turn; otherwise take all current messages
-      const messagesForHistory = retryConversationId
-        ? currentMessages.filter((m) => m.status !== 'error')
-        : currentMessages;
-
-      const history = buildRecentHistory(messagesForHistory, 10, 20000);
-
-      // Add user message if not retrying an existing query directly
+      // Add user message if not retrying an existing query turn
       if (!retryConversationId) {
         const userMsg: ChatMessage = {
-          id: 'msg_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
+          id: 'msg_u_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
           role: 'user',
           content: trimmedQuery,
           createdAt: Date.now(),
@@ -81,49 +79,78 @@ export function useChat({
         addMessageToConversation(convId, userMsg);
       }
 
+      // Create assistant streaming placeholder message
+      const assistantMsgId = 'msg_a_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+      const initialAssistantMsg: ChatMessage = {
+        id: assistantMsgId,
+        role: 'assistant',
+        content: '',
+        createdAt: Date.now(),
+        status: 'ok',
+        isStreaming: true,
+        citations: [],
+        sourcePolicyUsed: currentPolicy,
+      };
+      addMessageToConversation(convId, initialAssistantMsg);
+
       setIsLoading(true);
-      setLoadingText('Đang tra cứu và tổng hợp từ tài liệu...');
+      setLoadingText('Đang đối chiếu tài liệu và phác đồ...');
       setLastFailedQuery(null);
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
+      let accumulatedContent = '';
+
       try {
-        const response = await sendChatQuery(
+        const finalResponse = await sendChatQueryStream(
           {
             query: trimmedQuery,
-            history: history.length > 0 ? history : undefined,
+            conversation_id: convId,
+            source_policy: currentPolicy,
             top_k: 6,
             context_radius: 1,
             max_context_chars: 16000,
           },
+          {
+            onStatusChange: (statusText) => {
+              setLoadingText(statusText);
+            },
+            onAnswerStart: () => {
+              setLoadingText('');
+            },
+            onAnswerDelta: (delta) => {
+              accumulatedContent += delta;
+              updateMessageInConversation(convId, assistantMsgId, (prev) => ({
+                ...prev,
+                content: accumulatedContent,
+                isStreaming: true,
+              }));
+            },
+          },
           controller.signal
         );
 
-        if (response.status === 'insufficient_evidence' || response.answer === 'INSUFFICIENT_EVIDENCE') {
-          const assistantMsg: ChatMessage = {
-            id: 'msg_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
-            role: 'assistant',
-            content: 'INSUFFICIENT_EVIDENCE',
-            createdAt: Date.now(),
-            status: 'insufficient_evidence',
-            citations: [],
-          };
-          addMessageToConversation(convId, assistantMsg);
-        } else {
-          const assistantMsg: ChatMessage = {
-            id: 'msg_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
-            role: 'assistant',
-            content: response.answer || '',
-            createdAt: Date.now(),
-            status: 'ok',
-            citations: response.citations || [],
-          };
-          addMessageToConversation(convId, assistantMsg);
-        }
+        const finalStatus = finalResponse.status === 'insufficient_evidence' || finalResponse.answer === 'INSUFFICIENT_EVIDENCE'
+          ? 'insufficient_evidence'
+          : 'ok';
+
+        updateMessageInConversation(convId, assistantMsgId, (prev) => ({
+          ...prev,
+          content: finalStatus === 'insufficient_evidence' ? 'INSUFFICIENT_EVIDENCE' : finalResponse.answer || accumulatedContent,
+          status: finalStatus,
+          isStreaming: false,
+          citations: finalResponse.citations || [],
+          sourcePolicyUsed: (finalResponse.source_policy as SourcePolicy) || currentPolicy,
+        }));
       } catch (err: unknown) {
         if (err instanceof ChatApiError && err.isCancelled) {
-          // User aborted manually, no error message needed
+          // User cancelled stream manually: mark existing content as finished
+          updateMessageInConversation(convId, assistantMsgId, (prev) => ({
+            ...prev,
+            isStreaming: false,
+            content: accumulatedContent || '(Đã dừng tra cứu)',
+          }));
           return;
         }
 
@@ -134,36 +161,42 @@ export function useChat({
 
         setLastFailedQuery(trimmedQuery);
 
-        const errorMsg: ChatMessage = {
-          id: 'msg_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
-          role: 'assistant',
+        updateMessageInConversation(convId, assistantMsgId, (prev) => ({
+          ...prev,
           content: '',
-          createdAt: Date.now(),
           status: 'error',
+          isStreaming: false,
           errorDetails: {
             code: err instanceof ChatApiError ? err.statusCode : undefined,
             message: errorMessage,
           },
-        };
-        addMessageToConversation(convId, errorMsg);
+        }));
       } finally {
         setIsLoading(false);
         abortControllerRef.current = null;
       }
     },
-    [activeConversationId, activeConversation, createNewConversation, addMessageToConversation, isLoading]
+    [
+      activeConversationId,
+      activeConversation,
+      createNewConversation,
+      addMessageToConversation,
+      updateMessageInConversation,
+      isLoading,
+    ]
   );
 
   const retryLastMessage = useCallback(
     (query: string) => {
       if (!activeConversationId) return;
-      // Remove or overwrite the last error message
+      // Remove or reset last error message before retrying
       updateLastMessageInConversation(activeConversationId, (lastMsg) => {
         if (lastMsg.status === 'error') {
           return {
             ...lastMsg,
             status: 'ok',
             content: 'Đang thử lại...',
+            isStreaming: true,
           };
         }
         return lastMsg;
