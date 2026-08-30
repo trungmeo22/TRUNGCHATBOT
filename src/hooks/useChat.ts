@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import type { ChatMessage, Citation, Conversation, SourcePolicy } from '../types/chat';
+import type { ChatMessage, Citation, Conversation, SourcePolicy, ChatResponse } from '../types/chat';
 import { sendChatQueryStream, ChatApiError } from '../services/chatApi';
 import { DEFAULT_SOURCE_POLICY } from '../utils/sourcePolicy';
 
@@ -17,6 +17,53 @@ export interface UseChatProps {
     conversationId: string,
     updater: (lastMessage: ChatMessage) => ChatMessage
   ) => void;
+}
+
+function normalizeResponseCitations(response: ChatResponse): Citation[] {
+  const rawCitations = Array.isArray(response.citations)
+    ? response.citations
+    : Array.isArray(response.CITATIONS)
+      ? response.CITATIONS
+      : [];
+
+  return rawCitations
+    .filter((item): item is Citation => Boolean(item && typeof item === 'object'))
+    .map((citation, index) => {
+      const anyCitation = citation as Citation & Record<string, unknown>;
+      const evidenceId =
+        typeof anyCitation.evidence_id === 'string' && anyCitation.evidence_id.trim()
+          ? anyCitation.evidence_id.trim().toUpperCase()
+          : `E${index + 1}`;
+
+      const documentTitle =
+        typeof anyCitation.document_title === 'string' && anyCitation.document_title.trim()
+          ? anyCitation.document_title.trim()
+          : typeof anyCitation.title === 'string' && anyCitation.title.trim()
+            ? anyCitation.title.trim()
+            : typeof anyCitation.file_name === 'string' && anyCitation.file_name.trim()
+              ? anyCitation.file_name.trim()
+              : typeof anyCitation.document_id === 'string' && anyCitation.document_id.trim()
+                ? anyCitation.document_id.trim()
+                : `Nguồn ${evidenceId}`;
+
+      const quote =
+        typeof anyCitation.quote === 'string' && anyCitation.quote.trim()
+          ? anyCitation.quote.trim()
+          : typeof anyCitation.quote_preview === 'string' && anyCitation.quote_preview.trim()
+            ? anyCitation.quote_preview.trim()
+            : typeof anyCitation.source_text === 'string' && anyCitation.source_text.trim()
+              ? anyCitation.source_text.trim()
+              : typeof anyCitation.evidence_text === 'string' && anyCitation.evidence_text.trim()
+                ? anyCitation.evidence_text.trim()
+                : undefined;
+
+      return {
+        ...citation,
+        evidence_id: evidenceId,
+        document_title: documentTitle,
+        quote,
+      };
+    });
 }
 
 export function useChat({
@@ -62,12 +109,10 @@ export function useChat({
         convId = createNewConversation();
       }
 
-      // Read current conversation's source policy to avoid leakage across conversations
       const currentPolicy =
         (activeConversation && activeConversation.id === convId && activeConversation.sourcePolicy) ||
         DEFAULT_SOURCE_POLICY;
 
-      // Add user message if not retrying an existing query turn
       if (!retryConversationId) {
         const userMsg: ChatMessage = {
           id: 'msg_u_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
@@ -79,7 +124,6 @@ export function useChat({
         addMessageToConversation(convId, userMsg);
       }
 
-      // Create assistant streaming placeholder message
       const assistantMsgId = 'msg_a_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
       const initialAssistantMsg: ChatMessage = {
         id: assistantMsgId,
@@ -135,17 +179,18 @@ export function useChat({
           ? 'insufficient_evidence'
           : 'ok';
 
+        const normalizedCitations = normalizeResponseCitations(finalResponse);
+
         updateMessageInConversation(convId, assistantMsgId, (prev) => ({
           ...prev,
           content: finalStatus === 'insufficient_evidence' ? 'INSUFFICIENT_EVIDENCE' : finalResponse.answer || accumulatedContent,
           status: finalStatus,
           isStreaming: false,
-          citations: finalResponse.citations || [],
+          citations: normalizedCitations,
           sourcePolicyUsed: (finalResponse.source_policy as SourcePolicy) || currentPolicy,
         }));
       } catch (err: unknown) {
         if (err instanceof ChatApiError && err.isCancelled) {
-          // User cancelled stream manually: mark existing content as finished
           updateMessageInConversation(convId, assistantMsgId, (prev) => ({
             ...prev,
             isStreaming: false,
@@ -189,7 +234,6 @@ export function useChat({
   const retryLastMessage = useCallback(
     (query: string) => {
       if (!activeConversationId) return;
-      // Remove or reset last error message before retrying
       updateLastMessageInConversation(activeConversationId, (lastMsg) => {
         if (lastMsg.status === 'error') {
           return {
