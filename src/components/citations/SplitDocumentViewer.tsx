@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Citation } from '../../types/chat';
 import { getEvidenceNumber } from '../../utils/citations';
 import {
@@ -15,6 +15,8 @@ import {
   Hash,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Copy,
   Check,
   Columns2,
@@ -23,6 +25,8 @@ import {
   Minimize2,
   ListFilter,
   BookmarkCheck,
+  Search,
+  Sparkles,
 } from 'lucide-react';
 
 export type SplitViewDisplayMode = 'split' | 'drawer' | 'full';
@@ -39,6 +43,11 @@ interface SplitDocumentViewerProps {
   onSplitWidthChange?: (width: number) => void;
 }
 
+// Helper to escape regex special characters
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
   citation,
   allCitations = [],
@@ -52,17 +61,34 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'evidence' | 'metadata' | 'all'>('evidence');
   const [hasCopiedQuote, setHasCopiedQuote] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeMatchIndex, setActiveMatchIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const contentContainerRef = useRef<HTMLDivElement>(null);
 
-  // Close on Escape key
+  // Close on Escape key or focus search on Ctrl+F / Cmd+F when viewer is open
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
+      if (!isOpen) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        if (searchQuery) {
+          setSearchQuery('');
+        } else {
+          onClose();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, searchQuery, onClose]);
 
   // Find index of current citation in allCitations list
   const currentIndex = citation
@@ -86,21 +112,130 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
     }
   }, [hasNext, currentIndex, allCitations, onSelectCitation]);
 
+  const evidenceNum = citation ? getEvidenceNumber(citation.evidence_id) : '1';
+  const evidenceText = citation
+    ? citation.quote ||
+      citation.quote_preview ||
+      citation.source_text ||
+      citation.evidence_text ||
+      ''
+    : '';
+
+  const groupName = citation
+    ? citation.source_group ||
+      citation.source_category_name ||
+      (typeof citation.source_category === 'string' ? citation.source_category : undefined)
+    : undefined;
+
+  const docTitle = citation?.document_title || 'Tài liệu nguồn y khoa';
+
+  // Calculate search matches across the current text and metadata
+  const totalMatches = useMemo(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed || !evidenceText) return 0;
+    try {
+      const regex = new RegExp(escapeRegExp(trimmed), 'gi');
+      const matches = evidenceText.match(regex);
+      return matches ? matches.length : 0;
+    } catch {
+      return 0;
+    }
+  }, [searchQuery, evidenceText]);
+
+  // Reset or adjust match index when search changes
+  useEffect(() => {
+    setActiveMatchIndex(0);
+  }, [searchQuery, citation?.evidence_id]);
+
+  // Scroll to active highlighted match
+  useEffect(() => {
+    if (!searchQuery.trim() || totalMatches === 0) return;
+    const matchElements = contentContainerRef.current?.querySelectorAll('.doc-search-match');
+    if (matchElements && matchElements[activeMatchIndex]) {
+      matchElements[activeMatchIndex].scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }
+  }, [activeMatchIndex, searchQuery, totalMatches]);
+
+  const handleNextMatch = () => {
+    if (totalMatches <= 1) return;
+    setActiveMatchIndex((prev) => (prev + 1) % totalMatches);
+  };
+
+  const handlePrevMatch = () => {
+    if (totalMatches <= 1) return;
+    setActiveMatchIndex((prev) => (prev - 1 + totalMatches) % totalMatches);
+  };
+
+  // Find occurrences in other citations in the same answer
+  const otherCitationsWithMatches = useMemo(() => {
+    const trimmed = searchQuery.trim().toLowerCase();
+    if (!trimmed || allCitations.length <= 1) return [];
+
+    return allCitations.filter((c) => {
+      if (citation && c.evidence_id.toUpperCase() === citation.evidence_id.toUpperCase()) {
+        return false;
+      }
+      const text = (c.quote || c.source_text || c.evidence_text || c.document_title || '').toLowerCase();
+      return text.includes(trimmed);
+    });
+  }, [searchQuery, allCitations, citation]);
+
+  // Common quick jump term suggestions extracted or relevant
+  const quickFilterTerms = useMemo(() => {
+    const suggestions: string[] = [];
+    if (citation?.breadcrumb) {
+      const parts = citation.breadcrumb.split(/[/–\->]/).map((s) => s.trim()).filter(Boolean);
+      parts.slice(0, 2).forEach((p) => {
+        if (p.length > 3 && !suggestions.includes(p)) suggestions.push(p);
+      });
+    }
+    const defaultMedicalKeywords = ['chỉ định', 'liều dùng', 'chống chỉ định', 'chẩn đoán', 'phác đồ', 'theo dõi'];
+    defaultMedicalKeywords.forEach((kw) => {
+      if (evidenceText.toLowerCase().includes(kw) && !suggestions.includes(kw)) {
+        suggestions.push(kw);
+      }
+    });
+    return suggestions.slice(0, 4);
+  }, [citation, evidenceText]);
+
+  // Render text with highlighted search terms
+  const renderHighlightedText = (text: string) => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return text;
+
+    try {
+      const regex = new RegExp(`(${escapeRegExp(trimmed)})`, 'gi');
+      const parts = text.split(regex);
+      let matchCounter = 0;
+
+      return parts.map((part, i) => {
+        if (part.toLowerCase() === trimmed.toLowerCase()) {
+          const currentIdx = matchCounter++;
+          const isActive = currentIdx === activeMatchIndex;
+          return (
+            <mark
+              key={i}
+              className={`doc-search-match font-semibold rounded-xs px-0.5 transition-colors ${
+                isActive
+                  ? 'bg-amber-400 text-stone-950 ring-2 ring-amber-500 shadow-xs'
+                  : 'bg-yellow-200 text-stone-900'
+              }`}
+            >
+              {part}
+            </mark>
+          );
+        }
+        return part;
+      });
+    } catch {
+      return text;
+    }
+  };
+
   if (!isOpen || !citation) return null;
-
-  const evidenceNum = getEvidenceNumber(citation.evidence_id);
-  const evidenceText =
-    citation.quote ||
-    citation.quote_preview ||
-    citation.source_text ||
-    citation.evidence_text;
-
-  const groupName =
-    citation.source_group ||
-    citation.source_category_name ||
-    (typeof citation.source_category === 'string' ? citation.source_category : undefined);
-
-  const docTitle = citation.document_title || 'Tài liệu nguồn y khoa';
 
   const handleCopyQuote = () => {
     if (!evidenceText) return;
@@ -153,7 +288,7 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
                 type="button"
                 onClick={handlePrev}
                 disabled={!hasPrev}
-                className="p-1 rounded text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+                className="p-1 rounded text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors cursor-pointer"
                 title="Trích dẫn trước [←]"
                 aria-label="Trích dẫn trước"
               >
@@ -163,7 +298,7 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
                 type="button"
                 onClick={handleNext}
                 disabled={!hasNext}
-                className="p-1 rounded text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+                className="p-1 rounded text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors cursor-pointer"
                 title="Trích dẫn tiếp theo [→]"
                 aria-label="Trích dẫn tiếp theo"
               >
@@ -178,7 +313,7 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
               <button
                 type="button"
                 onClick={() => onSplitWidthChange(40)}
-                className={`px-1.5 py-0.5 rounded transition-colors ${
+                className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
                   splitWidthPercent === 40
                     ? 'bg-blue-50 text-blue-700 font-bold'
                     : 'hover:bg-gray-100 text-gray-600'
@@ -190,7 +325,7 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
               <button
                 type="button"
                 onClick={() => onSplitWidthChange(50)}
-                className={`px-1.5 py-0.5 rounded transition-colors ${
+                className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
                   splitWidthPercent === 50
                     ? 'bg-blue-50 text-blue-700 font-bold'
                     : 'hover:bg-gray-100 text-gray-600'
@@ -202,7 +337,7 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
               <button
                 type="button"
                 onClick={() => onSplitWidthChange(60)}
-                className={`px-1.5 py-0.5 rounded transition-colors ${
+                className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
                   splitWidthPercent === 60
                     ? 'bg-blue-50 text-blue-700 font-bold'
                     : 'hover:bg-gray-100 text-gray-600'
@@ -220,7 +355,7 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
               <button
                 type="button"
                 onClick={() => onViewModeChange('split')}
-                className={`p-1 rounded transition-colors ${
+                className={`p-1 rounded transition-colors cursor-pointer ${
                   viewMode === 'split'
                     ? 'bg-blue-50 text-blue-700 font-medium'
                     : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
@@ -233,7 +368,7 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
               <button
                 type="button"
                 onClick={() => onViewModeChange(viewMode === 'full' ? 'split' : 'full')}
-                className={`p-1 rounded transition-colors ${
+                className={`p-1 rounded transition-colors cursor-pointer ${
                   viewMode === 'full'
                     ? 'bg-blue-50 text-blue-700 font-medium'
                     : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
@@ -264,6 +399,132 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
         </div>
       </div>
 
+      {/* In-Document Search Bar */}
+      <div className="px-3.5 py-2 bg-stone-50/90 border-b border-gray-200/80 flex flex-col gap-1.5 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 flex items-center">
+            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 pointer-events-none" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (e.shiftKey) {
+                    handlePrevMatch();
+                  } else {
+                    handleNextMatch();
+                  }
+                }
+              }}
+              placeholder="Tìm thuật ngữ y khoa, phần mục trong tài liệu... (Ctrl+F)"
+              className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 shadow-2xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  searchInputRef.current?.focus();
+                }}
+                className="absolute right-2 p-0.5 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 cursor-pointer"
+                title="Xóa tìm kiếm"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Search match navigation controls */}
+          {searchQuery.trim() && (
+            <div className="flex items-center gap-1 shrink-0 bg-white border border-gray-200 px-1.5 py-1 rounded-lg shadow-2xs text-[11px]">
+              {totalMatches > 0 ? (
+                <>
+                  <span className="font-semibold text-gray-700 px-1 font-mono">
+                    {activeMatchIndex + 1}/{totalMatches}
+                  </span>
+                  <div className="flex items-center border-l border-gray-200 pl-1 ml-0.5">
+                    <button
+                      type="button"
+                      onClick={handlePrevMatch}
+                      className="p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded cursor-pointer"
+                      title="Kết quả trước (Shift + Enter)"
+                      aria-label="Kết quả trước"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNextMatch}
+                      className="p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded cursor-pointer"
+                      title="Kết quả tiếp theo (Enter)"
+                      aria-label="Kết quả tiếp theo"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <span className="text-gray-400 italic px-1">Không tìm thấy</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Quick Search Chips / Cross-reference indicator */}
+        <div className="flex items-center justify-between text-[11px] min-h-[18px]">
+          {/* Suggested Quick Filter chips when search is empty */}
+          {!searchQuery.trim() && quickFilterTerms.length > 0 && (
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 text-gray-500">
+              <span className="shrink-0 text-[10.5px] font-medium text-gray-400 flex items-center gap-0.5">
+                <Sparkles className="w-3 h-3 text-blue-500" />
+                Gợi ý tra nhanh:
+              </span>
+              {quickFilterTerms.map((term) => (
+                <button
+                  key={term}
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery(term);
+                    setActiveTab('evidence');
+                  }}
+                  className="px-1.5 py-0.5 bg-white border border-gray-200 text-gray-700 hover:border-blue-300 hover:text-blue-700 rounded-md font-medium shrink-0 transition-colors shadow-2xs cursor-pointer text-[10.5px]"
+                >
+                  {term}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Cross-document matches notification */}
+          {searchQuery.trim() && otherCitationsWithMatches.length > 0 && (
+            <div className="flex items-center gap-1.5 text-blue-700 bg-blue-50/80 px-2 py-0.5 rounded border border-blue-100 w-full justify-between">
+              <span className="truncate">
+                Thuật ngữ có xuất hiện ở nguồn khác ({otherCitationsWithMatches.length}):
+              </span>
+              <div className="flex items-center gap-1 shrink-0">
+                {otherCitationsWithMatches.slice(0, 3).map((oc) => {
+                  const oNum = getEvidenceNumber(oc.evidence_id);
+                  return (
+                    <button
+                      key={oc.evidence_id}
+                      type="button"
+                      onClick={() => onSelectCitation(oc)}
+                      className="px-1 py-0.2 bg-blue-600 text-white rounded font-bold text-[10px] hover:bg-blue-700 cursor-pointer shadow-2xs"
+                      title={`Chuyển sang xem Nguồn [${oNum}]: ${oc.document_title || ''}`}
+                    >
+                      [{oNum}]
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Navigation Sub-Tabs */}
       <div className="flex items-center border-b border-gray-100 px-4 bg-white shrink-0 text-xs font-semibold gap-6">
         <button
@@ -277,6 +538,11 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
         >
           <BookmarkCheck className="w-3.5 h-3.5" />
           <span>Đoạn trích đối chiếu</span>
+          {searchQuery.trim() && totalMatches > 0 && (
+            <span className="ml-1 bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
+              {totalMatches}
+            </span>
+          )}
         </button>
 
         <button
@@ -309,7 +575,10 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
       </div>
 
       {/* Main Body Content with scroll */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-gray-800">
+      <div
+        ref={contentContainerRef}
+        className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-gray-800"
+      >
         {activeTab === 'evidence' && (
           <div className="space-y-4 animate-in fade-in duration-150">
             {/* Header Document & Breadcrumb badge */}
@@ -318,14 +587,14 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
                 Vị trí trong tài liệu gốc
               </div>
               <h4 className="text-sm sm:text-base font-bold text-gray-950 leading-snug">
-                {docTitle}
+                {renderHighlightedText(docTitle)}
               </h4>
 
               {/* Breadcrumb if available */}
               {(citation.breadcrumb || citation.section_id) && (
                 <div className="text-xs text-blue-800 bg-blue-50/70 px-2.5 py-1.5 rounded-lg font-medium border border-blue-100/60 leading-relaxed">
                   <span className="font-semibold text-blue-900 mr-1">Chương mục:</span>
-                  {citation.breadcrumb || citation.section_id}
+                  {renderHighlightedText(citation.breadcrumb || citation.section_id || '')}
                 </div>
               )}
 
@@ -340,7 +609,7 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
                 {citation.organization && (
                   <span className="inline-flex items-center gap-1 bg-white border border-gray-200 px-2 py-0.5 rounded-md text-gray-700 shadow-2xs">
                     <Building2 className="w-3.5 h-3.5 text-gray-500" />
-                    {citation.organization}
+                    {renderHighlightedText(citation.organization)}
                   </span>
                 )}
                 {citation.publication_year && (
@@ -394,7 +663,7 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
                     “
                   </div>
                   <div className="relative pl-2 italic">
-                    {evidenceText}
+                    {renderHighlightedText(evidenceText)}
                   </div>
                 </div>
               ) : (
@@ -438,7 +707,7 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
                 Tên tài liệu
               </label>
               <h4 className="text-base font-bold text-gray-950 leading-snug">
-                {docTitle}
+                {renderHighlightedText(docTitle)}
               </h4>
             </div>
 
@@ -451,7 +720,11 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
                   <span>Cơ quan / Tổ chức</span>
                 </div>
                 <div className="text-sm font-semibold text-gray-900 mt-1" title={citation.organization}>
-                  {citation.organization || <span className="text-gray-400 font-normal">Không có dữ liệu</span>}
+                  {citation.organization ? (
+                    renderHighlightedText(citation.organization)
+                  ) : (
+                    <span className="text-gray-400 font-normal">Không có dữ liệu</span>
+                  )}
                 </div>
               </div>
 
@@ -473,7 +746,11 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
                   <span>Loại văn bản</span>
                 </div>
                 <div className="text-sm font-semibold text-gray-900 mt-1" title={citation.document_type}>
-                  {citation.document_type || <span className="text-gray-400 font-normal">Không có dữ liệu</span>}
+                  {citation.document_type ? (
+                    renderHighlightedText(citation.document_type)
+                  ) : (
+                    <span className="text-gray-400 font-normal">Không có dữ liệu</span>
+                  )}
                 </div>
               </div>
 
@@ -484,7 +761,11 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
                   <span>Nhóm nguồn</span>
                 </div>
                 <div className="text-sm font-semibold text-gray-900 mt-1" title={groupName}>
-                  {groupName || <span className="text-gray-400 font-normal">Không có dữ liệu</span>}
+                  {groupName ? (
+                    renderHighlightedText(groupName)
+                  ) : (
+                    <span className="text-gray-400 font-normal">Không có dữ liệu</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -544,7 +825,7 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <div className="text-sm font-bold text-blue-700 leading-snug">
                       <span className="font-extrabold text-blue-900 mr-1.5">[{num}]</span>
-                      {c.document_title || `Tài liệu nguồn [${num}]`}
+                      {renderHighlightedText(c.document_title || `Tài liệu nguồn [${num}]`)}
                     </div>
                     {isSelected && (
                       <span className="text-[11px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">
@@ -561,7 +842,7 @@ export const SplitDocumentViewer: React.FC<SplitDocumentViewerProps> = ({
 
                   {snippet && (
                     <div className="text-xs text-gray-600 line-clamp-2 italic bg-gray-50 p-2 rounded-lg border border-gray-100">
-                      "{snippet}"
+                      "{renderHighlightedText(snippet)}"
                     </div>
                   )}
                 </div>
