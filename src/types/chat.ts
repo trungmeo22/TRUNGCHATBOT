@@ -24,6 +24,7 @@ export interface Citation {
   page_number?: number | string;
   section_id?: string;
   breadcrumb?: string;
+
   source_unit_id?: string;
   source_unit_type?: string;
   matched_unit_type?: string;
@@ -32,6 +33,10 @@ export interface Citation {
   quote_preview?: string;
   source_text?: string;
   evidence_text?: string;
+
+  retrieval_rank?: number;
+  retrieval_score?: number;
+
   url?: string;
 
   retrieval_rank?: number;

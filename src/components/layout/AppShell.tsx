@@ -11,6 +11,7 @@ interface AppShellProps {
   conversations: Conversation[];
   activeConversationId: string | null;
   activeConversation: Conversation | null;
+  currentSourcePolicy?: SourcePolicy;
   isLoading: boolean;
   loadingText: string;
   selectedCitation: Citation | null;
@@ -20,7 +21,7 @@ interface AppShellProps {
   onNewConversation: () => void;
   onRenameConversation: (id: string, newTitle: string) => void;
   onDeleteConversation: (id: string) => void;
-  onUpdateSourcePolicy: (conversationId: string, policy: SourcePolicy) => void;
+  onUpdateSourcePolicy: (conversationId: string | null | undefined, policy: SourcePolicy) => void;
   onSendMessage: (query: string) => void;
   onStop: () => void;
   onSelectCitation: (citation: Citation) => void;
@@ -32,6 +33,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   conversations,
   activeConversationId,
   activeConversation,
+  currentSourcePolicy,
   isLoading,
   loadingText,
   selectedCitation,
@@ -73,13 +75,11 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   const currentMessages: ChatMessage[] = activeConversation?.messages || [];
-  const currentSourcePolicy = activeConversation?.sourcePolicy;
+  const effectiveSourcePolicy = activeConversation?.sourcePolicy || currentSourcePolicy;
 
   const handlePolicyChange = (newPolicy: SourcePolicy) => {
-    if (activeConversationId) {
-      onUpdateSourcePolicy(activeConversationId, newPolicy);
-      showToast('Đã cập nhật phạm vi nguồn tài liệu');
-    }
+    onUpdateSourcePolicy(activeConversationId, newPolicy);
+    showToast('Đã cập nhật phạm vi nguồn tài liệu');
   };
 
   const handleRetry = () => {
@@ -177,7 +177,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             messages={currentMessages}
             isLoading={isLoading}
             loadingText={loadingText}
-            sourcePolicy={currentSourcePolicy}
+            sourcePolicy={effectiveSourcePolicy}
             onPolicyChange={handlePolicyChange}
             onSendMessage={(q) => {
               setIsHeaderVisible(true);

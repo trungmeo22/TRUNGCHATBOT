@@ -14,6 +14,7 @@ export function useConversations() {
     }));
   });
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [draftSourcePolicy, setDraftSourcePolicy] = useState<SourcePolicy>(DEFAULT_SOURCE_POLICY);
 
   // Sync to storage on change
   useEffect(() => {
@@ -21,22 +22,24 @@ export function useConversations() {
   }, [conversations]);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
+  const currentSourcePolicy = activeConversation ? activeConversation.sourcePolicy : draftSourcePolicy;
 
   const createNewConversation = useCallback((customPolicy?: SourcePolicy): string => {
     const newId = generateId();
+    const policyToUse = customPolicy || draftSourcePolicy || DEFAULT_SOURCE_POLICY;
     const newConv: Conversation = {
       id: newId,
       title: 'Cuộc trò chuyện mới',
       createdAt: Date.now(),
       updatedAt: Date.now(),
       messages: [],
-      sourcePolicy: customPolicy || DEFAULT_SOURCE_POLICY,
+      sourcePolicy: policyToUse,
     };
 
     setConversations((prev) => [newConv, ...prev]);
     setActiveConversationId(newId);
     return newId;
-  }, []);
+  }, [draftSourcePolicy]);
 
   const selectConversation = useCallback((id: string) => {
     setActiveConversationId(id);
@@ -78,18 +81,21 @@ export function useConversations() {
   );
 
   const updateConversationSourcePolicy = useCallback(
-    (conversationId: string, policy: SourcePolicy) => {
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === conversationId
-            ? {
-                ...c,
-                sourcePolicy: policy,
-                updatedAt: Date.now(),
-              }
-            : c
-        )
-      );
+    (conversationId: string | null | undefined, policy: SourcePolicy) => {
+      setDraftSourcePolicy(policy);
+      if (conversationId) {
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === conversationId
+              ? {
+                  ...c,
+                  sourcePolicy: policy,
+                  updatedAt: Date.now(),
+                }
+              : c
+          )
+        );
+      }
     },
     []
   );
@@ -175,6 +181,8 @@ export function useConversations() {
     conversations,
     activeConversationId,
     activeConversation,
+    currentSourcePolicy,
+    draftSourcePolicy,
     createNewConversation,
     selectConversation,
     clearActiveConversation,

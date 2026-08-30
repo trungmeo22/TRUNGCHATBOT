@@ -1,5 +1,6 @@
 import type { ChatRequest, ChatResponse, Citation, SourcePolicy } from '../types/chat';
 import { mockChatRequest } from './mockChatApi';
+import { normalizeCitations } from '../utils/citations';
 
 export class ChatApiError extends Error {
   statusCode?: number;
@@ -184,7 +185,14 @@ export async function sendChatQueryStream(
           }
         } else if (eventType === 'done') {
           if (typeof parsedData === 'object' && parsedData !== null) {
-            finalResponse = parsedData as ChatResponse;
+            const rawRes = parsedData as Record<string, unknown>;
+            const normCitations = normalizeCitations(rawRes);
+            finalResponse = {
+              ...(rawRes as unknown as ChatResponse),
+              status: (rawRes.status as string) || 'ok',
+              answer: (rawRes.answer as string) || accumulatedAnswer,
+              citations: normCitations,
+            };
           }
         } else if (eventType === 'error') {
           const errMsg = typeof parsedData === 'object' && parsedData?.message ? parsedData.message : 'Lỗi trong quá trình xử lý tri thức.';
@@ -214,6 +222,8 @@ export async function sendChatQueryStream(
       answer: accumulatedAnswer,
       citations: [],
     };
+  } else if (!finalResponse.citations || finalResponse.citations.length === 0) {
+    finalResponse.citations = normalizeCitations(finalResponse);
   }
 
   if (callbacks.onDone) {
@@ -287,7 +297,11 @@ export async function sendChatQuery(
     }
 
     const data = await response.json();
-    return data as ChatResponse;
+    const normalizedCitations = normalizeCitations(data);
+    return {
+      ...data,
+      citations: normalizedCitations,
+    } as ChatResponse;
   } catch (error: unknown) {
     if (error instanceof ChatApiError) {
       throw error;

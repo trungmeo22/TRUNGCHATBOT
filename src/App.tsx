@@ -13,6 +13,7 @@ export default function App() {
     conversations,
     activeConversationId,
     activeConversation,
+    currentSourcePolicy,
     createNewConversation,
     selectConversation,
     clearActiveConversation,
@@ -38,6 +39,7 @@ export default function App() {
   } = useChat({
     activeConversationId,
     activeConversation,
+    currentSourcePolicy,
     createNewConversation,
     addMessageToConversation,
     updateMessageInConversation,
@@ -49,6 +51,7 @@ export default function App() {
       conversations={conversations}
       activeConversationId={activeConversationId}
       activeConversation={activeConversation}
+      currentSourcePolicy={currentSourcePolicy}
       isLoading={isLoading}
       loadingText={loadingText}
       selectedCitation={selectedCitation}

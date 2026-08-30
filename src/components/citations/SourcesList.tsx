@@ -22,8 +22,8 @@ export const SourcesList: React.FC<SourcesListProps> = ({
     <div className="mt-6 pt-4 border-t border-gray-100" id="assistant-sources-section">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <BookOpen className="w-3.5 h-3.5 text-gray-400" />
-          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+          <BookOpen className="w-4 h-4 text-blue-600" />
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
             Nguồn · {citations.length}
           </span>
         </div>
@@ -32,17 +32,17 @@ export const SourcesList: React.FC<SourcesListProps> = ({
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 font-medium py-1 px-1.5 rounded transition-colors"
+            className="flex items-center gap-1 text-xs sm:text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-2 rounded-lg hover:bg-blue-50 transition-colors"
           >
             {isExpanded ? (
               <>
                 <span>Thu gọn</span>
-                <ChevronUp className="w-3.5 h-3.5" />
+                <ChevronUp className="w-4 h-4" />
               </>
             ) : (
               <>
                 <span>Xem tất cả ({citations.length})</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <ChevronDown className="w-4 h-4" />
               </>
             )}
           </button>
