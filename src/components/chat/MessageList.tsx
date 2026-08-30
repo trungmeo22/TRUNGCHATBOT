@@ -8,7 +8,8 @@ interface MessageListProps {
   messages: ChatMessage[];
   isLoading: boolean;
   loadingText: string;
-  onSelectCitation: (citation: Citation) => void;
+  selectedCitationId?: string;
+  onSelectCitation: (citation: Citation, messageCitations?: Citation[]) => void;
   onCopyText: (text: string) => void;
   onRetryLast: () => void;
   onHeaderVisibilityChange?: (isVisible: boolean) => void;
@@ -18,6 +19,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   messages,
   isLoading,
   loadingText,
+  selectedCitationId,
   onSelectCitation,
   onCopyText,
   onRetryLast,
@@ -95,6 +97,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           <AssistantMessage
             key={message.id}
             message={message}
+            selectedCitationId={selectedCitationId}
             onSelectCitation={onSelectCitation}
             onCopyText={onCopyText}
             onRetry={onRetryLast}

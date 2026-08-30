@@ -29,7 +29,12 @@ export default function App() {
     isLoading,
     loadingText,
     selectedCitation,
+    activeCitationsList,
     isSourceDrawerOpen,
+    splitViewMode,
+    setSplitViewMode,
+    splitWidthPercent,
+    setSplitWidthPercent,
     lastFailedQuery,
     openCitationDrawer,
     closeCitationDrawer,
@@ -55,7 +60,12 @@ export default function App() {
       isLoading={isLoading}
       loadingText={loadingText}
       selectedCitation={selectedCitation}
+      activeCitationsList={activeCitationsList}
       isSourceDrawerOpen={isSourceDrawerOpen}
+      splitViewMode={splitViewMode}
+      onViewModeChange={setSplitViewMode}
+      splitWidthPercent={splitWidthPercent}
+      onSplitWidthChange={setSplitWidthPercent}
       lastFailedQuery={lastFailedQuery}
       onSelectConversation={selectConversation}
       onNewConversation={clearActiveConversation}

@@ -6,12 +6,14 @@ import { BookOpen, FileText } from 'lucide-react';
 interface CitationBadgeProps {
   evidenceId: string;
   citation?: Citation;
+  isActive?: boolean;
   onClick: (citation: Citation) => void;
 }
 
 export const CitationBadge: React.FC<CitationBadgeProps> = ({
   evidenceId,
   citation,
+  isActive = false,
   onClick,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -55,7 +57,11 @@ export const CitationBadge: React.FC<CitationBadgeProps> = ({
         id={`citation-badge-${evidenceId}`}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        className="inline-flex items-center justify-center min-w-[1.4rem] h-5 px-1.5 rounded-md text-[11.5px] font-bold tracking-tight transition-colors duration-150 cursor-pointer bg-blue-100/90 hover:bg-blue-200 text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+        className={`inline-flex items-center justify-center min-w-[1.4rem] h-5 px-1.5 rounded-md text-[11.5px] font-bold tracking-tight transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${
+          isActive
+            ? 'bg-blue-600 text-white ring-2 ring-blue-500 ring-offset-1 shadow-2xs font-extrabold scale-105'
+            : 'bg-blue-100/90 hover:bg-blue-200 text-blue-800'
+        }`}
         aria-label={`Trích dẫn nguồn [${evidenceNum}]: ${docTitle}${citation.page_number ? `, trang ${citation.page_number}` : ''}`}
       >
         [{evidenceNum}]

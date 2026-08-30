@@ -39,9 +39,6 @@ export interface Citation {
 
   url?: string;
 
-  retrieval_rank?: number;
-  retrieval_score?: number;
-
   [key: string]: unknown;
 }
 

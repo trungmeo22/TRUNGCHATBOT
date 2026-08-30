@@ -11,13 +11,15 @@ import { ShieldCheck, Copy, Check, BookOpen } from 'lucide-react';
 
 interface AssistantMessageProps {
   message: ChatMessage;
-  onSelectCitation: (citation: Citation) => void;
+  selectedCitationId?: string;
+  onSelectCitation: (citation: Citation, messageCitations?: Citation[]) => void;
   onCopyText?: (text: string) => void;
   onRetry?: () => void;
 }
 
 export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   message,
+  selectedCitationId,
   onSelectCitation,
   onCopyText,
   onRetry,
@@ -51,18 +53,27 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
 
   const citations = message.citations || [];
 
+  const handleCitationClick = (citation: Citation) => {
+    onSelectCitation(citation, citations);
+  };
+
   // Recursive citation replacer for Markdown elements
   const renderWithCitations = (node: React.ReactNode): React.ReactNode => {
     if (typeof node === 'string') {
       const tokens = tokenizeCitations(node, citations);
       return tokens.map((token, i) => {
         if (token.type === 'citation' && token.evidenceId) {
+          const isCurrentActive =
+            Boolean(selectedCitationId) &&
+            token.evidenceId.toUpperCase() === selectedCitationId?.toUpperCase();
+
           return (
             <CitationBadge
               key={`${token.evidenceId}-${i}`}
               evidenceId={token.evidenceId}
               citation={token.citation}
-              onClick={onSelectCitation}
+              isActive={isCurrentActive}
+              onClick={handleCitationClick}
             />
           );
         }
@@ -184,7 +195,8 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
         {citations.length > 0 && (
           <SourcesList
             citations={citations}
-            onSelectCitation={onSelectCitation}
+            activeEvidenceId={selectedCitationId}
+            onSelectCitation={handleCitationClick}
           />
         )}
 

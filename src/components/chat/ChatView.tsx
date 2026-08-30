@@ -8,11 +8,12 @@ interface ChatViewProps {
   messages: ChatMessage[];
   isLoading: boolean;
   loadingText: string;
+  selectedCitationId?: string;
   sourcePolicy?: SourcePolicy;
   onPolicyChange?: (newPolicy: SourcePolicy) => void;
   onSendMessage: (query: string) => void;
   onStop: () => void;
-  onSelectCitation: (citation: Citation) => void;
+  onSelectCitation: (citation: Citation, messageCitations?: Citation[]) => void;
   onCopyText: (text: string) => void;
   onRetryLast: () => void;
   onHeaderVisibilityChange?: (isVisible: boolean) => void;
@@ -22,6 +23,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   messages,
   isLoading,
   loadingText,
+  selectedCitationId,
   sourcePolicy,
   onPolicyChange,
   onSendMessage,
@@ -40,6 +42,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           messages={messages}
           isLoading={isLoading}
           loadingText={loadingText}
+          selectedCitationId={selectedCitationId}
           onSelectCitation={onSelectCitation}
           onCopyText={onCopyText}
           onRetryLast={onRetryLast}

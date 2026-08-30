@@ -5,11 +5,13 @@ import { BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface SourcesListProps {
   citations: Citation[];
+  activeEvidenceId?: string;
   onSelectCitation: (citation: Citation) => void;
 }
 
 export const SourcesList: React.FC<SourcesListProps> = ({
   citations,
+  activeEvidenceId,
   onSelectCitation,
 }) => {
   if (!citations || citations.length === 0) return null;
@@ -54,6 +56,10 @@ export const SourcesList: React.FC<SourcesListProps> = ({
           <SourceCard
             key={citation.evidence_id}
             citation={citation}
+            isActive={
+              Boolean(activeEvidenceId) &&
+              citation.evidence_id.toUpperCase() === activeEvidenceId?.toUpperCase()
+            }
             onClick={onSelectCitation}
           />
         ))}

@@ -5,10 +5,11 @@ import { ChevronRight } from 'lucide-react';
 
 interface SourceCardProps {
   citation: Citation;
+  isActive?: boolean;
   onClick: (citation: Citation) => void;
 }
 
-export const SourceCard: React.FC<SourceCardProps> = ({ citation, onClick }) => {
+export const SourceCard: React.FC<SourceCardProps> = ({ citation, isActive = false, onClick }) => {
   const evidenceNum = getEvidenceNumber(citation.evidence_id);
   const docTitle = citation.document_title || `Tài liệu nguồn [${evidenceNum}]`;
 
@@ -29,7 +30,11 @@ export const SourceCard: React.FC<SourceCardProps> = ({ citation, onClick }) => 
     <div
       id={`source-card-${citation.evidence_id}`}
       onClick={() => onClick(citation)}
-      className="group relative flex flex-col p-3.5 rounded-xl border border-gray-200 bg-white shadow-2xs hover:border-blue-300 hover:shadow-xs transition-all duration-150 cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+      className={`group relative flex flex-col p-3.5 rounded-xl border transition-all duration-150 cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-blue-500/30 ${
+        isActive
+          ? 'border-blue-500 bg-blue-50/70 shadow-xs ring-2 ring-blue-500/20'
+          : 'border-gray-200 bg-white shadow-2xs hover:border-blue-300 hover:shadow-xs'
+      }`}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -45,7 +50,13 @@ export const SourceCard: React.FC<SourceCardProps> = ({ citation, onClick }) => 
           <span className="text-blue-900 font-extrabold mr-1">[{evidenceNum}]</span>
           {docTitle}
         </div>
-        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 shrink-0 mt-0.5 transition-colors" />
+        {isActive ? (
+          <span className="text-[10.5px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded shrink-0">
+            Đang mở
+          </span>
+        ) : (
+          <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 shrink-0 mt-0.5 transition-colors" />
+        )}
       </div>
 
       {metadataParts.length > 0 && (

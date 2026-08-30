@@ -3,6 +3,7 @@ import type { ChatMessage, Citation, Conversation, SourcePolicy } from '../types
 import { sendChatQueryStream, ChatApiError } from '../services/chatApi';
 import { DEFAULT_SOURCE_POLICY } from '../utils/sourcePolicy';
 import { normalizeCitations } from '../utils/citations';
+import type { SplitViewDisplayMode } from '../components/citations/SplitDocumentViewer';
 
 export interface UseChatProps {
   activeConversationId: string | null;
@@ -33,15 +34,40 @@ export function useChat({
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('Đang đối chiếu tài liệu và phác đồ...');
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
+  const [activeCitationsList, setActiveCitationsList] = useState<Citation[]>([]);
   const [isSourceDrawerOpen, setIsSourceDrawerOpen] = useState(false);
+  const [splitViewMode, setSplitViewMode] = useState<SplitViewDisplayMode>('split');
+  const [splitWidthPercent, setSplitWidthPercent] = useState<number>(50);
   const [lastFailedQuery, setLastFailedQuery] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const openCitationDrawer = useCallback((citation: Citation) => {
-    setSelectedCitation(citation);
-    setIsSourceDrawerOpen(true);
-  }, []);
+  const openCitationDrawer = useCallback(
+    (citation: Citation, messageCitations?: Citation[]) => {
+      setSelectedCitation(citation);
+      if (messageCitations && messageCitations.length > 0) {
+        setActiveCitationsList(messageCitations);
+      } else if (activeConversation) {
+        // Find message that contains this citation
+        const msg = activeConversation.messages.find(
+          (m) =>
+            m.citations &&
+            m.citations.some(
+              (c) => c.evidence_id.toUpperCase() === citation.evidence_id.toUpperCase()
+            )
+        );
+        if (msg && msg.citations) {
+          setActiveCitationsList(msg.citations);
+        } else {
+          setActiveCitationsList([citation]);
+        }
+      } else {
+        setActiveCitationsList([citation]);
+      }
+      setIsSourceDrawerOpen(true);
+    },
+    [activeConversation]
+  );
 
   const closeCitationDrawer = useCallback(() => {
     setIsSourceDrawerOpen(false);
@@ -217,7 +243,12 @@ export function useChat({
     isLoading,
     loadingText,
     selectedCitation,
+    activeCitationsList,
     isSourceDrawerOpen,
+    splitViewMode,
+    setSplitViewMode,
+    splitWidthPercent,
+    setSplitWidthPercent,
     lastFailedQuery,
     openCitationDrawer,
     closeCitationDrawer,

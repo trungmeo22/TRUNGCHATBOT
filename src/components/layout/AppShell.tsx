@@ -3,7 +3,7 @@ import type { Conversation, ChatMessage, Citation, SourcePolicy } from '../../ty
 import { Sidebar } from './Sidebar';
 import { MobileHeader } from './MobileHeader';
 import { ChatView } from '../chat/ChatView';
-import { SourceDrawer } from '../citations/SourceDrawer';
+import { SplitDocumentViewer, type SplitViewDisplayMode } from '../citations/SplitDocumentViewer';
 import { Toast } from '../ui/Toast';
 import { PanelLeftOpen } from 'lucide-react';
 
@@ -15,7 +15,12 @@ interface AppShellProps {
   isLoading: boolean;
   loadingText: string;
   selectedCitation: Citation | null;
+  activeCitationsList?: Citation[];
   isSourceDrawerOpen: boolean;
+  splitViewMode?: SplitViewDisplayMode;
+  onViewModeChange?: (mode: SplitViewDisplayMode) => void;
+  splitWidthPercent?: number;
+  onSplitWidthChange?: (width: number) => void;
   lastFailedQuery: string | null;
   onSelectConversation: (id: string) => void;
   onNewConversation: () => void;
@@ -24,7 +29,7 @@ interface AppShellProps {
   onUpdateSourcePolicy: (conversationId: string | null | undefined, policy: SourcePolicy) => void;
   onSendMessage: (query: string) => void;
   onStop: () => void;
-  onSelectCitation: (citation: Citation) => void;
+  onSelectCitation: (citation: Citation, messageCitations?: Citation[]) => void;
   onCloseSourceDrawer: () => void;
   onRetryLast: (query: string) => void;
 }
@@ -37,7 +42,12 @@ export const AppShell: React.FC<AppShellProps> = ({
   isLoading,
   loadingText,
   selectedCitation,
+  activeCitationsList = [],
   isSourceDrawerOpen,
+  splitViewMode = 'split',
+  onViewModeChange,
+  splitWidthPercent = 50,
+  onSplitWidthChange,
   lastFailedQuery,
   onSelectConversation,
   onNewConversation,
@@ -93,8 +103,23 @@ export const AppShell: React.FC<AppShellProps> = ({
     }
   };
 
+  const isDocumentOpen = isSourceDrawerOpen && Boolean(selectedCitation);
+  const isDesktopSplitActive = isDocumentOpen && splitViewMode === 'split';
+  const isDesktopFullActive = isDocumentOpen && splitViewMode === 'full';
+  const isDesktopDrawerActive = isDocumentOpen && splitViewMode === 'drawer';
+
+  // Compute CSS width class for split view panel
+  const getSplitWidthStyle = () => {
+    if (splitWidthPercent === 40) return 'w-[40%]';
+    if (splitWidthPercent === 60) return 'w-[60%]';
+    return 'w-[50%]';
+  };
+
   return (
-    <div id="app-shell-root" className="fixed inset-0 flex h-[100dvh] w-full overflow-hidden bg-[#F9FAFB] font-sans antialiased text-gray-900">
+    <div
+      id="app-shell-root"
+      className="fixed inset-0 flex h-[100dvh] w-full overflow-hidden bg-[#F9FAFB] font-sans antialiased text-gray-900"
+    >
       {/* Desktop Sidebar (~260px, collapsible) */}
       {isDesktopSidebarOpen && (
         <div className="hidden md:flex shrink-0 h-full animate-in slide-in-from-left-2 duration-200">
@@ -171,32 +196,109 @@ export const AppShell: React.FC<AppShellProps> = ({
           onNewChat={handleNewChat}
         />
 
-        {/* Chat Area with centered max-width */}
-        <main className="flex-1 flex flex-col h-full min-h-0 overflow-hidden">
-          <ChatView
-            messages={currentMessages}
-            isLoading={isLoading}
-            loadingText={loadingText}
-            sourcePolicy={effectiveSourcePolicy}
-            onPolicyChange={handlePolicyChange}
-            onSendMessage={(q) => {
-              setIsHeaderVisible(true);
-              onSendMessage(q);
-            }}
-            onStop={onStop}
-            onSelectCitation={onSelectCitation}
-            onCopyText={() => showToast('Đã sao chép vào bộ nhớ tạm')}
-            onRetryLast={handleRetry}
-            onHeaderVisibilityChange={setIsHeaderVisible}
-          />
-        </main>
+        {/* Split-View Container (Side-by-Side on Desktop) */}
+        <div className="flex-1 flex flex-row h-full min-h-0 overflow-hidden relative">
+          {/* Left Column: Chat Conversation Stream (Hidden if Full-screen Document mode on desktop) */}
+          <main
+            className={`flex flex-col h-full min-h-0 min-w-0 overflow-hidden transition-all duration-200 ${
+              isDesktopFullActive
+                ? 'hidden'
+                : isDesktopSplitActive
+                ? 'flex-1'
+                : 'flex-1 w-full'
+            }`}
+          >
+            <ChatView
+              messages={currentMessages}
+              isLoading={isLoading}
+              loadingText={loadingText}
+              selectedCitationId={selectedCitation?.evidence_id}
+              sourcePolicy={effectiveSourcePolicy}
+              onPolicyChange={handlePolicyChange}
+              onSendMessage={(q) => {
+                setIsHeaderVisible(true);
+                onSendMessage(q);
+              }}
+              onStop={onStop}
+              onSelectCitation={onSelectCitation}
+              onCopyText={() => showToast('Đã sao chép vào bộ nhớ tạm')}
+              onRetryLast={handleRetry}
+              onHeaderVisibilityChange={setIsHeaderVisible}
+            />
+          </main>
 
-        {/* Right Source Drawer */}
-        <SourceDrawer
-          isOpen={isSourceDrawerOpen}
-          citation={selectedCitation}
-          onClose={onCloseSourceDrawer}
-        />
+          {/* Right Column: Desktop Split-View Document Panel */}
+          {isDocumentOpen && (isDesktopSplitActive || isDesktopFullActive) && (
+            <div
+              id="desktop-split-view-panel"
+              className={`hidden md:flex flex-col h-full shrink-0 animate-in slide-in-from-right-3 duration-200 ${
+                isDesktopFullActive ? 'w-full flex-1' : getSplitWidthStyle()
+              }`}
+            >
+              <SplitDocumentViewer
+                citation={selectedCitation}
+                allCitations={activeCitationsList}
+                isOpen={isDocumentOpen}
+                viewMode={splitViewMode}
+                onViewModeChange={onViewModeChange}
+                onSelectCitation={onSelectCitation}
+                onClose={onCloseSourceDrawer}
+                splitWidthPercent={splitWidthPercent}
+                onSplitWidthChange={onSplitWidthChange}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Overlay Drawer mode (when user explicitly selects drawer mode on desktop) */}
+        {isDocumentOpen && isDesktopDrawerActive && (
+          <div
+            id="desktop-overlay-drawer-container"
+            className="hidden md:block fixed inset-0 z-50 overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs transition-opacity animate-in fade-in"
+              onClick={onCloseSourceDrawer}
+              aria-hidden="true"
+            />
+            <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+              <div className="w-screen max-w-lg bg-white border-l border-gray-200 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200 h-full">
+                <SplitDocumentViewer
+                  citation={selectedCitation}
+                  allCitations={activeCitationsList}
+                  isOpen={isDocumentOpen}
+                  viewMode={splitViewMode}
+                  onViewModeChange={onViewModeChange}
+                  onSelectCitation={onSelectCitation}
+                  onClose={onCloseSourceDrawer}
+                  splitWidthPercent={splitWidthPercent}
+                  onSplitWidthChange={onSplitWidthChange}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Document Modal / Bottom Sheet */}
+        {isDocumentOpen && (
+          <div
+            id="mobile-document-modal"
+            className="md:hidden fixed inset-0 z-50 flex flex-col bg-white animate-in slide-in-from-bottom duration-200"
+            role="dialog"
+            aria-modal="true"
+          >
+            <SplitDocumentViewer
+              citation={selectedCitation}
+              allCitations={activeCitationsList}
+              isOpen={isDocumentOpen}
+              viewMode="split"
+              onSelectCitation={onSelectCitation}
+              onClose={onCloseSourceDrawer}
+            />
+          </div>
+        )}
 
         {/* Global Toast */}
         <Toast message={toastMessage} isVisible={isToastVisible} />
