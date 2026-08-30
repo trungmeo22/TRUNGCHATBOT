@@ -19,16 +19,23 @@ export interface Citation {
   source_category?: string;
   source_category_name?: string;
   source_geographic_scope?: string;
+  source_category_source?: string;
 
   page_number?: number | string;
   section_id?: string;
   breadcrumb?: string;
   source_unit_id?: string;
+  source_unit_type?: string;
+  matched_unit_type?: string;
 
   quote?: string;
+  quote_preview?: string;
   source_text?: string;
   evidence_text?: string;
   url?: string;
+
+  retrieval_rank?: number;
+  retrieval_score?: number;
 
   [key: string]: unknown;
 }
@@ -52,6 +59,13 @@ export interface ChatResponse {
   status: string;
   answer: string;
   citations?: Citation[];
+
+  /**
+   * V2 backend production contract currently returns citations using an
+   * uppercase top-level key. Keep both spellings supported so the frontend is
+   * tolerant while the API contract is stabilized.
+   */
+  CITATIONS?: Citation[];
 
   conversation?: {
     conversation_id?: string;
