@@ -1,6 +1,7 @@
 import type { ChatRequest, ChatResponse, Citation, SourcePolicy } from '../types/chat';
 import { mockChatRequest } from './mockChatApi';
 import { normalizeCitations } from '../utils/citations';
+import { getChatEngine } from '../utils/engine';
 
 export class ChatApiError extends Error {
   statusCode?: number;
@@ -31,7 +32,7 @@ export interface StreamEventCallbacks {
 }
 
 /**
- * SSE Stream Client for V2-G endpoint: POST /api/chat-v2/stream
+ * SSE Stream Client: POST /api/chat-v2/stream, or /api/chat-v3/stream when the v3 trial is on
  */
 export async function sendChatQueryStream(
   request: ChatRequest,
@@ -60,7 +61,7 @@ export async function sendChatQueryStream(
 
   let response: Response;
   try {
-    response = await fetch('/api/chat-v2/stream', {
+    response = await fetch(`/api/chat-${getChatEngine()}/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

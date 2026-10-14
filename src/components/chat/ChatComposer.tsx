@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowUp, Square } from 'lucide-react';
+import { ArrowUp, Square, Zap } from 'lucide-react';
 import { SourcePolicySelector } from './SourcePolicySelector';
+import { getChatEngine, setChatEngine, type ChatEngine } from '../../utils/engine';
 import type { SourcePolicy } from '../../types/chat';
 
 interface ChatComposerProps {
@@ -21,6 +22,13 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   onPolicyChange,
 }) => {
   const [input, setInput] = useState(initialValue);
+  const [engine, setEngine] = useState<ChatEngine>(getChatEngine);
+
+  const toggleEngine = () => {
+    const next: ChatEngine = engine === 'v3' ? 'v2' : 'v3';
+    setChatEngine(next);
+    setEngine(next);
+  };
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Sync initial value if provided from suggestion
@@ -76,16 +84,38 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       id="chat-composer-container"
       className="w-full max-w-[760px] mx-auto px-3 sm:px-4 pb-1 pt-0.5"
     >
-      {/* Top action bar with Source Policy Selector */}
-      {onPolicyChange && (
-        <div className="flex items-center justify-between px-1 mb-2">
+      {/* Top action bar: Source Policy Selector and the v2/v3 engine switch */}
+      <div className="flex items-center justify-between gap-2 px-1 mb-2">
+        {onPolicyChange ? (
           <SourcePolicySelector
             currentPolicy={sourcePolicy}
             onPolicyChange={onPolicyChange}
             disabled={isLoading}
           />
-        </div>
-      )}
+        ) : (
+          <span />
+        )}
+        <button
+          type="button"
+          id="engine-toggle-btn"
+          onClick={toggleEngine}
+          disabled={isLoading}
+          aria-pressed={engine === 'v3'}
+          title={
+            engine === 'v3'
+              ? 'Bản thử v3: chữ hiện ngay khi đang viết, trích dẫn được kiểm sau. Bấm để quay về v2.'
+              : 'Bật bản thử v3: trả lời nhanh hơn, chữ hiện ngay khi đang viết.'
+          }
+          className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer ${
+            engine === 'v3'
+              ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+              : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+          }`}
+        >
+          <Zap className={`w-3.5 h-3.5 ${engine === 'v3' ? 'fill-current' : ''}`} />
+          {engine === 'v3' ? 'v3 nhanh (thử)' : 'v2'}
+        </button>
+      </div>
 
       <div className="relative flex items-end rounded-2xl bg-white border border-gray-200 shadow-lg ring-1 ring-black/[0.02] focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all p-2 sm:p-2.5">
         <textarea

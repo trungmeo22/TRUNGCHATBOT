@@ -5,6 +5,7 @@ import {defineConfig, type Plugin} from 'vite';
 import chatHandler from './api/chat';
 import chatV2Handler from './api/chat-v2';
 import chatV2StreamHandler from './api/chat-v2/stream';
+import chatV3StreamHandler from './api/chat-v3/stream';
 import healthHandler from './api/health';
 import conversationHandler from './api/conversations/[conversationId]';
 
@@ -20,6 +21,20 @@ function apiDevMiddleware(): Plugin {
             await chatV2StreamHandler(req as any, res as any);
           } catch (err) {
             console.error('API /api/chat-v2/stream error:', err);
+            if (!res.headersSent) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: 'INTERNAL_SERVER_ERROR' }));
+            }
+          }
+          return;
+        }
+
+        if (url === '/api/chat-v3/stream') {
+          try {
+            await chatV3StreamHandler(req as any, res as any);
+          } catch (err) {
+            console.error('API /api/chat-v3/stream error:', err);
             if (!res.headersSent) {
               res.statusCode = 500;
               res.setHeader('Content-Type', 'application/json');
