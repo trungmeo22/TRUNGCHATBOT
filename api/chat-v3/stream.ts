@@ -4,6 +4,7 @@ interface ChatRequestBodyV2 {
   query?: unknown;
   conversation_id?: unknown;
   source_policy?: unknown;
+  answer_mode?: unknown;
   top_k?: unknown;
   context_radius?: unknown;
   max_context_chars?: unknown;
@@ -116,7 +117,7 @@ export default async function handler(
     return;
   }
 
-  const { query, conversation_id, source_policy, top_k, context_radius, max_context_chars } = rawBody;
+  const { query, conversation_id, source_policy, answer_mode, top_k, context_radius, max_context_chars } = rawBody;
 
   if (typeof query !== 'string') {
     sendJsonResponse(res, 400, {
@@ -151,6 +152,7 @@ export default async function handler(
     query: trimmedQuery,
     ...(validatedConversationId ? { conversation_id: validatedConversationId } : {}),
     ...(source_policy && typeof source_policy === 'object' ? { source_policy } : {}),
+    ...(answer_mode === 'free' ? { answer_mode: 'free' } : {}),
     top_k: typeof top_k === 'number' && Number.isInteger(top_k) && top_k >= 1 && top_k <= 8 ? top_k : 6,
     context_radius: typeof context_radius === 'number' && Number.isInteger(context_radius) && context_radius >= 0 && context_radius <= 2 ? context_radius : 1,
     max_context_chars: typeof max_context_chars === 'number' && Number.isInteger(max_context_chars) && max_context_chars >= 2000 && max_context_chars <= 30000 ? max_context_chars : 16000,

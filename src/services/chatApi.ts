@@ -1,7 +1,7 @@
 import type { ChatRequest, ChatResponse, Citation, SourcePolicy } from '../types/chat';
 import { mockChatRequest } from './mockChatApi';
 import { normalizeCitations } from '../utils/citations';
-import { getChatEngine } from '../utils/engine';
+import { getAnswerMode, getChatEngine } from '../utils/engine';
 
 export class ChatApiError extends Error {
   statusCode?: number;
@@ -58,6 +58,11 @@ export async function sendChatQueryStream(
     context_radius: request.context_radius ?? 1,
     max_context_chars: request.max_context_chars ?? 16000,
   };
+
+  // Only the v3 engine understands answer_mode; the server defaults to "grounded".
+  if (getChatEngine() === 'v3' && getAnswerMode() === 'free') {
+    payload.answer_mode = 'free';
+  }
 
   let response: Response;
   try {

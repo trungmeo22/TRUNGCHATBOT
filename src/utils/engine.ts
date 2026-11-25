@@ -30,3 +30,30 @@ export function setChatEngine(engine: ChatEngine): void {
     // Storage unavailable (private mode): the choice lasts for this page only.
   }
 }
+
+/**
+ * How the v3 engine answers.
+ *  - grounded (default): only from the internal documents.
+ *  - free: internal documents first, then general medical knowledge, which the
+ *    server puts in a separate, labelled section without citations.
+ * Stored per browser. v2 ignores it.
+ */
+export type AnswerMode = 'grounded' | 'free';
+
+const ANSWER_MODE_KEY = 'med_answer_mode';
+
+export function getAnswerMode(): AnswerMode {
+  try {
+    return localStorage.getItem(ANSWER_MODE_KEY) === 'free' ? 'free' : 'grounded';
+  } catch {
+    return 'grounded';
+  }
+}
+
+export function setAnswerMode(mode: AnswerMode): void {
+  try {
+    localStorage.setItem(ANSWER_MODE_KEY, mode);
+  } catch {
+    // Storage unavailable (private mode): the choice lasts for this page only.
+  }
+}

@@ -1,7 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowUp, Square, Zap } from 'lucide-react';
 import { SourcePolicySelector } from './SourcePolicySelector';
-import { getChatEngine, setChatEngine, type ChatEngine } from '../../utils/engine';
+import {
+  getAnswerMode,
+  getChatEngine,
+  setAnswerMode,
+  setChatEngine,
+  type AnswerMode,
+  type ChatEngine,
+} from '../../utils/engine';
 import type { SourcePolicy } from '../../types/chat';
 
 interface ChatComposerProps {
@@ -28,6 +35,13 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     const next: ChatEngine = engine === 'v3' ? 'v2' : 'v3';
     setChatEngine(next);
     setEngine(next);
+  };
+  const [answerMode, setAnswerModeState] = useState<AnswerMode>(getAnswerMode);
+
+  const toggleAnswerMode = () => {
+    const next: AnswerMode = answerMode === 'free' ? 'grounded' : 'free';
+    setAnswerMode(next);
+    setAnswerModeState(next);
   };
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -95,6 +109,28 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         ) : (
           <span />
         )}
+        <div className="flex items-center gap-2 shrink-0">
+        {engine === 'v3' && (
+          <button
+            type="button"
+            id="answer-mode-toggle-btn"
+            onClick={toggleAnswerMode}
+            disabled={isLoading}
+            aria-pressed={answerMode === 'free'}
+            title={
+              answerMode === 'free'
+                ? 'Tự do: ưu tiên tài liệu nội bộ, thiếu thì bổ sung kiến thức y khoa chung (phần bổ sung được tách riêng, không có trích dẫn, chưa đối chiếu nguồn). Bấm để chỉ trả lời theo tài liệu nội bộ.'
+                : 'Chỉ theo tài liệu nội bộ. Bấm để cho phép bổ sung kiến thức y khoa chung khi tài liệu không có.'
+            }
+            className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer ${
+              answerMode === 'free'
+                ? 'border-purple-300 bg-purple-50 text-purple-800 hover:bg-purple-100'
+                : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            {answerMode === 'free' ? 'Tự do + tài liệu' : 'Chỉ tài liệu'}
+          </button>
+        )}
         <button
           type="button"
           id="engine-toggle-btn"
@@ -115,6 +151,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           <Zap className={`w-3.5 h-3.5 ${engine === 'v3' ? 'fill-current' : ''}`} />
           {engine === 'v3' ? 'v3 nhanh' : 'v2'}
         </button>
+        </div>
       </div>
 
       <div className="relative flex items-end rounded-2xl bg-white border border-gray-200 shadow-lg ring-1 ring-black/[0.02] focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all p-2 sm:p-2.5">
