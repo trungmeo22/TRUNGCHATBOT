@@ -103,8 +103,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           aria-pressed={engine === 'v3'}
           title={
             engine === 'v3'
-              ? 'Bản thử v3: chữ hiện ngay khi đang viết, trích dẫn được kiểm sau. Bấm để quay về v2.'
-              : 'Bật bản thử v3: trả lời nhanh hơn, chữ hiện ngay khi đang viết.'
+              ? 'v3: chữ hiện ngay khi đang viết; câu có số liệu chưa khớp nguồn được đánh dấu. Bấm để chuyển sang v2 (kiểm trước khi hiện, chậm hơn).'
+              : 'v2: kiểm trước khi hiện, chậm hơn. Bấm để chuyển sang v3 (trả lời nhanh hơn, chữ hiện ngay).'
           }
           className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer ${
             engine === 'v3'
@@ -113,7 +113,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           }`}
         >
           <Zap className={`w-3.5 h-3.5 ${engine === 'v3' ? 'fill-current' : ''}`} />
-          {engine === 'v3' ? 'v3 nhanh (thử)' : 'v2'}
+          {engine === 'v3' ? 'v3 nhanh' : 'v2'}
         </button>
       </div>
 

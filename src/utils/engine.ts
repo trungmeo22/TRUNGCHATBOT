@@ -1,9 +1,10 @@
 /**
  * Which answer pipeline the chat uses.
- *  - v2: /api/chat-v2/stream (default) - answer validated before it is shown.
- *  - v3: /api/chat-v3/stream (trial) - text streams as the model writes it,
- *        citations are checked after the answer finishes.
- * Stored per browser; `?engine=v3` / `?engine=v2` in the URL sets it.
+ *  - v3: /api/chat-v3/stream (default) - text streams as the model writes it;
+ *        sentences whose figures do not match the cited source are marked
+ *        "[nguồn chưa đảm bảo]" inline.
+ *  - v2: /api/chat-v2/stream - answer validated before it is shown (slower).
+ * Stored per browser; `?engine=v2` / `?engine=v3` in the URL sets it.
  */
 export type ChatEngine = 'v2' | 'v3';
 
@@ -16,9 +17,9 @@ export function getChatEngine(): ChatEngine {
       localStorage.setItem(ENGINE_KEY, fromUrl);
       return fromUrl;
     }
-    return localStorage.getItem(ENGINE_KEY) === 'v3' ? 'v3' : 'v2';
+    return localStorage.getItem(ENGINE_KEY) === 'v2' ? 'v2' : 'v3';
   } catch {
-    return 'v2';
+    return 'v3';
   }
 }
 
